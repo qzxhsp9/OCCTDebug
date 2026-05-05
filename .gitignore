@@ -1,0 +1,23 @@
+# Build
+build/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.autosave
+
+# Qt
+*.qm
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# OS
+.DS_Store
+Thumbs.db
