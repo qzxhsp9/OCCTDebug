@@ -13,7 +13,7 @@
 |------|------|
 | `src/` | 应用源码与入口 |
 | `cmake/` | CMake 辅助脚本（查找依赖、工具链等） |
-| `depends/` | 第三方依赖说明与可选脚本（不提交预编译库） |
+| `depends/` | 预置 OCCT / FreeType 布局（与本地 `MovementPath` 工程一致：`depends/occt`、`depends/occt_3rdparty/...`） |
 | `doc/` | 设计文档、使用说明、调试笔记 |
 
 ## 依赖
@@ -21,22 +21,31 @@
 - CMake 3.20+
 - 支持 C++17 的编译器（MSVC 2019+、GCC 10+、Clang 12+ 等）
 - Qt6（Core、Gui、Widgets）
-- 已安装并可通过 `find_package(OpenCASCADE)` 找到的 OCCT
+- **OCCT**：按 `cmake/occt_setup_install.cmake` 从 `depends/occt` 解析头文件与库（与 `F:\data\github\MovementPath` 相同约定）
+- **FreeType**：按 `cmake/occt_3rdpart_setup_install.cmake` 从 `depends/occt_3rdparty\freetype-2.13.3-x64` 解析
 
-在 Windows 上若 CMake 找不到 OCCT，可将 `OpenCASCADE_DIR` 指向 OCCT 安装目录下的 `cmake` 文件夹（例如 `.../opencascade-7.x.x/cmake`）。
+### Qt 路径（与 MovementPath / PathPlanningWorkbench 相同思路）
+
+配置时会**先用当前的 `CMAKE_PREFIX_PATH` / `Qt6_DIR` 查找 Qt6**（适合已在 Visual Studio「CMake 变量」或 `CMakeSettings.json` 里配置过 Qt 的情况）。若仍未找到，再使用下面任一方式：
+
+1. 配置 CMake 时设置 **`OCCTDEBUG_QT_ROOT`** 指向含 `lib/cmake/Qt6` 的 Qt 安装根目录，或  
+2. 将 `src/QtWorkbenchDefaults.cmake.example` 复制为 **`src/QtWorkbenchDefaults.cmake`**（已 gitignore），在其中设置 **`OCCTDEBUG_QT_DEFAULT_KIT`**。
+
+Windows 下构建完成后会尽量运行 **`windeployqt`**（或回退为复制 `bin` 与 `plugins/platforms`），并把 **OCCT / FreeType** 的 DLL 拷到可执行文件目录（与 MovementPath 中 PathPlanningWorkbench 行为一致）。
 
 ## 构建
 
+单配置生成器需指定 **`CMAKE_BUILD_TYPE`**（与 MovementPath 的 OCCT 脚本一致），以便选中 `depends/occt` 下对应 Debug/Release 库目录。
+
 ```bash
-cmake -S . -B build -DCMAKE_PREFIX_PATH="<Qt6安装前缀>;<OCCT安装前缀可选>"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Windows 示例（按本机路径修改）：
+Windows 多配置（Visual Studio）示例：
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
-  -DCMAKE_PREFIX_PATH="C:/Qt/6.7.0/msvc2019_64"
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DOCCTDEBUG_QT_ROOT="C:/Qt/6.11.0/msvc2022_64"
 cmake --build build --config Release
 ```
 

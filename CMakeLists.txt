@@ -13,8 +13,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(GNUInstallDirs)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets)
-find_package(OpenCASCADE REQUIRED)
+# Local OCCT + FreeType under depends/ (same layout as MovementPath).
+include(${CMAKE_SOURCE_DIR}/cmake/occt_setup_install.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/occt_3rdpart_setup_install.cmake)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)

@@ -12,6 +12,9 @@ compile_commands.json
 *.user
 *.autosave
 
+# Qt — local kit path (see src/QtWorkbenchDefaults.cmake.example)
+src/QtWorkbenchDefaults.cmake
+
 # Qt
 *.qm
 moc_*.cpp

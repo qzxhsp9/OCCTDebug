@@ -1,0 +1,3 @@
+# Copy to QtWorkbenchDefaults.cmake (gitignored) and set your kit path.
+
+set(OCCTDEBUG_QT_DEFAULT_KIT "C:/Qt/6.11.0/msvc2022_64")
