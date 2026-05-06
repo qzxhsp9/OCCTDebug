@@ -11,10 +11,12 @@
 
 | 路径 | 说明 |
 |------|------|
-| `src/` | 应用源码与入口 |
+| `src/app/`、`src/ui/`、`src/core/`、`src/occt/`、`src/diagnose/`、`src/io/` | 按开发计划划分的源码模块 |
+| `tests/` | CTest：`occtdebug_shape_smoke`（无 Qt，验证 OCCT 与 Shape 树构建） |
+| `knowledge/` | 规则/案例/API 占位（里程碑 6） |
 | `cmake/` | CMake 辅助脚本（查找依赖、工具链等） |
 | `depends/` | 预置 OCCT / FreeType 布局（`depends/occt`、`depends/occt_3rdparty/...`） |
-| `doc/` | 设计文档、使用说明、调试笔记 |
+| `doc/` | `OCCTDebug_Development_Plan.md`、`architecture.md`、`roadmap.md` 等 |
 
 ## 依赖
 

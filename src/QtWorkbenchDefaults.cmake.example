@@ -1,3 +1,4 @@
 # Copy to QtWorkbenchDefaults.cmake (gitignored) and set your kit path.
+# Optional: if you reuse MovementPath's variable name, CMake also reads MOVEMENTPATH_QT_WORKBENCH_DEFAULT_KIT.
 
 set(OCCTDEBUG_QT_DEFAULT_KIT "C:/Qt/6.11.0/msvc2022_64")
