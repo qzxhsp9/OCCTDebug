@@ -19,6 +19,8 @@
 
 #if defined(_WIN32)
 
+#include "occt/BBoxWire.h"
+
 #include <AIS_DisplayMode.hxx>
 #include <AIS_InteractiveContext.hxx>
 #include <AIS_Shape.hxx>
@@ -33,6 +35,8 @@
 #include <V3d_Viewer.hxx>
 #include <WNT_Window.hxx>
 
+#include "occt/BBoxWire.h"
+
 struct ViewerOcctData
 {
     Handle(Aspect_DisplayConnection) display;
@@ -43,6 +47,7 @@ struct ViewerOcctData
     Handle(AIS_InteractiveContext) context;
     Handle(AIS_Shape) rootAis;
     Handle(AIS_Shape) highlightAis;
+    Handle(AIS_Shape) bboxAis;
     bool initialized = false;
 };
 
@@ -225,6 +230,42 @@ void ViewerWidget::scheduleDeferredViewportSync()
         m_deferredViewportTimer->start(0);
     }
 }
+
+void ViewerWidget::updateBboxAis()
+{
+    if (!m_occt || !m_occt->initialized || m_occt->context.IsNull())
+    {
+        return;
+    }
+
+    if (!m_occt->bboxAis.IsNull())
+    {
+        m_occt->context->Remove(m_occt->bboxAis, Standard_False);
+        m_occt->bboxAis.Nullify();
+    }
+
+    if (!m_showBoundingBox || m_lastHighlight.IsNull())
+    {
+        m_occt->context->UpdateCurrentViewer();
+        return;
+    }
+
+    const TopoDS_Shape wireShape = OcctBuildBoundingBoxWire(m_lastHighlight);
+    if (wireShape.IsNull())
+    {
+        m_occt->context->UpdateCurrentViewer();
+        return;
+    }
+
+    m_occt->bboxAis = new AIS_Shape(wireShape);
+    m_occt->bboxAis->SetDisplayMode(AIS_WireFrame);
+    m_occt->bboxAis->SetColor(Quantity_Color(Quantity_NOC_CYAN));
+    m_occt->bboxAis->SetWidth(1.2);
+    m_occt->context->Display(m_occt->bboxAis, Standard_False);
+    m_occt->context->SetDisplayMode(m_occt->bboxAis, AIS_WireFrame, Standard_False);
+    m_occt->context->SetZLayer(m_occt->bboxAis, Graphic3d_ZLayerId_Topmost);
+    m_occt->context->UpdateCurrentViewer();
+}
 #endif
 
 void ViewerWidget::deferViewportSync()
@@ -233,6 +274,29 @@ void ViewerWidget::deferViewportSync()
     ensureOcctInitialized();
     scheduleDeferredViewportSync();
 #endif
+}
+
+void ViewerWidget::setShowBoundingBox(bool on)
+{
+    if (m_showBoundingBox == on)
+    {
+        return;
+    }
+    m_showBoundingBox = on;
+#if defined(_WIN32)
+    ensureOcctInitialized();
+    if (m_occt && m_occt->initialized)
+    {
+        updateBboxAis();
+        redrawView();
+        scheduleDeferredViewportSync();
+    }
+#endif
+}
+
+bool ViewerWidget::showBoundingBox() const
+{
+    return m_showBoundingBox;
 }
 
 void ViewerWidget::setRootShape(const TopoDS_Shape& root)
@@ -251,6 +315,12 @@ void ViewerWidget::setRootShape(const TopoDS_Shape& root)
         m_occt->context->Remove(m_occt->highlightAis, Standard_False);
         m_occt->highlightAis.Nullify();
     }
+    if (!m_occt->bboxAis.IsNull())
+    {
+        m_occt->context->Remove(m_occt->bboxAis, Standard_False);
+        m_occt->bboxAis.Nullify();
+    }
+    m_lastHighlight.Nullify();
     if (!m_occt->rootAis.IsNull())
     {
         m_occt->context->Remove(m_occt->rootAis, Standard_False);
@@ -288,8 +358,11 @@ void ViewerWidget::setHighlightShape(const TopoDS_Shape& shape)
         m_occt->highlightAis.Nullify();
     }
 
+    m_lastHighlight = shape;
+
     if (shape.IsNull())
     {
+        updateBboxAis();
         m_occt->context->UpdateCurrentViewer();
         m_occt->view->Redraw();
         scheduleDeferredViewportSync();
@@ -303,6 +376,7 @@ void ViewerWidget::setHighlightShape(const TopoDS_Shape& shape)
     m_occt->context->Display(m_occt->highlightAis, Standard_False);
     m_occt->context->SetDisplayMode(m_occt->highlightAis, AIS_WireFrame, Standard_False);
     m_occt->context->SetZLayer(m_occt->highlightAis, Graphic3d_ZLayerId_Top);
+    updateBboxAis();
     m_occt->context->UpdateCurrentViewer();
     m_occt->view->Redraw();
     scheduleDeferredViewportSync();

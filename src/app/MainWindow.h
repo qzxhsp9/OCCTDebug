@@ -7,6 +7,8 @@
 
 #include <QMainWindow>
 
+#include <QString>
+
 #include <vector>
 class DiagnosticPanel;
 class PropertyPanel;
@@ -25,12 +27,16 @@ private slots:
     void onRunDiagnostics();
     void onExportMarkdown();
     void onExportShapeJson();
+    void onExportMinimalRepro();
+    void onSaveSession();
+    void onOpenSession();
     void onShapeSelected(int shapeId);
     void onFindingActivated(int shapeId);
 
 private:
     void applyProblemDefaults();
     void updateWindowTitle();
+    bool openBrepPath(const QString& path, QString* errorOut);
 
     ShapeDocument m_document;
     ProblemContext m_problem;
@@ -41,4 +47,7 @@ private:
     PropertyPanel* m_propertyPanel = nullptr;
     DiagnosticPanel* m_diagnosticPanel = nullptr;
     ViewerWidget* m_viewer = nullptr;
+
+    QString m_sessionFilePath;
+    int m_selectedShapeId = -1;
 };

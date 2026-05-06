@@ -1,8 +1,11 @@
 #include "app/MainWindow.h"
 
+#include "core/DebugSession.h"
 #include "core/Logger.h"
 #include "io/BRepLoader.h"
 #include "io/MarkdownReportExporter.h"
+#include "io/ReproPackageExporter.h"
+#include "io/SessionSerializer.h"
 #include "io/ShapeTreeJsonExporter.h"
 #include "occt/ShapeInspector.h"
 #include "ui/DiagnosticPanel.h"
@@ -13,7 +16,9 @@
 #include <Standard_Version.hxx>
 
 #include <QAction>
+#include <QDateTime>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -86,6 +91,14 @@ MainWindow::MainWindow(QWidget* parent)
     openAct->setShortcut(tr("Ctrl+O"));
     connect(openAct, &QAction::triggered, this, &MainWindow::onOpenBrep);
 
+    auto* openSessionAct = fileMenu->addAction(tr("Open &session…"));
+    openSessionAct->setShortcut(tr("Ctrl+Shift+O"));
+    connect(openSessionAct, &QAction::triggered, this, &MainWindow::onOpenSession);
+
+    auto* saveSessionAct = fileMenu->addAction(tr("&Save session…"));
+    saveSessionAct->setShortcut(tr("Ctrl+Shift+S"));
+    connect(saveSessionAct, &QAction::triggered, this, &MainWindow::onSaveSession);
+
     auto* diagMenu = menuBar()->addMenu(tr("&Diagnostics"));
     auto* runDiagAct = diagMenu->addAction(tr("&Run diagnostics"));
     runDiagAct->setShortcut(tr("F5"));
@@ -94,9 +107,14 @@ MainWindow::MainWindow(QWidget* parent)
     auto* exportMenu = menuBar()->addMenu(tr("&Export"));
     connect(exportMenu->addAction(tr("Diagnostic report (&Markdown)…")), &QAction::triggered, this, &MainWindow::onExportMarkdown);
     connect(exportMenu->addAction(tr("Shape tree (&JSON)…")), &QAction::triggered, this, &MainWindow::onExportShapeJson);
+    connect(exportMenu->addAction(tr("Minimal &repro folder…")), &QAction::triggered, this, &MainWindow::onExportMinimalRepro);
 
     auto* viewMenu = menuBar()->addMenu(tr("&View"));
     connect(viewMenu->addAction(tr("&Fit all")), &QAction::triggered, m_viewer, &ViewerWidget::fitAll);
+    auto* bboxAct = viewMenu->addAction(tr("Show &bounding box"));
+    bboxAct->setCheckable(true);
+    bboxAct->setChecked(m_viewer->showBoundingBox());
+    connect(bboxAct, &QAction::toggled, m_viewer, &ViewerWidget::setShowBoundingBox);
 
     connect(m_shapeTree, &ShapeTreeWidget::shapeSelected, this, &MainWindow::onShapeSelected);
     connect(m_diagnosticPanel, &DiagnosticPanel::findingActivated, this, &MainWindow::onFindingActivated);
@@ -119,6 +137,31 @@ void MainWindow::updateWindowTitle()
     setWindowTitle(tr("OCCTDebug"));
 }
 
+bool MainWindow::openBrepPath(const QString& path, QString* errorOut)
+{
+    const BRepLoadResult res = BRepLoader::loadFile(path);
+    if (!res.ok)
+    {
+        if (errorOut != nullptr)
+        {
+            *errorOut = res.errorMessage;
+        }
+        return false;
+    }
+
+    ShapeInspector::BuildFromShape(m_document, res.shape);
+    m_shapeTree->rebuildFromDocument(m_document);
+    m_propertyPanel->showShape(m_document, -1);
+    m_diagnosticPanel->setFindings({});
+    m_findings.clear();
+
+    m_problem.inputFiles = {path.toStdString()};
+    m_viewer->setRootShape(res.shape);
+    m_viewer->setHighlightShape(TopoDS_Shape());
+    m_selectedShapeId = -1;
+    return true;
+}
+
 void MainWindow::onOpenBrep()
 {
     const QString path = QFileDialog::getOpenFileName(
@@ -131,26 +174,134 @@ void MainWindow::onOpenBrep()
         return;
     }
 
-    const BRepLoadResult res = BRepLoader::loadFile(path);
-    if (!res.ok)
+    QString err;
+    if (!openBrepPath(path, &err))
     {
-        Logger::error(res.errorMessage);
-        QMessageBox::warning(this, tr("Open failed"), res.errorMessage);
+        Logger::error(err);
+        QMessageBox::warning(this, tr("Open failed"), err);
         return;
     }
 
-    ShapeInspector::BuildFromShape(m_document, res.shape);
-    m_shapeTree->rebuildFromDocument(m_document);
-    m_propertyPanel->showShape(m_document, -1);
-    m_diagnosticPanel->setFindings({});
-    m_findings.clear();
-
-    m_problem.inputFiles = {path.toStdString()};
-    m_viewer->setRootShape(res.shape);
-    m_viewer->setHighlightShape(TopoDS_Shape());
+    m_sessionFilePath.clear();
 
     Logger::info(tr("Loaded BREP: %1 (%2 shapes)").arg(path).arg(m_document.Nodes().size()));
     statusBar()->showMessage(tr("Loaded %1").arg(path));
+}
+
+void MainWindow::onSaveSession()
+{
+    if (m_document.RootShape().IsNull())
+    {
+        QMessageBox::information(this, tr("Session"), tr("Load a BREP before saving a session."));
+        return;
+    }
+
+    QString path = QFileDialog::getSaveFileName(
+        this,
+        tr("Save session"),
+        m_sessionFilePath.isEmpty() ? QStringLiteral("debug.occtdbg") : m_sessionFilePath,
+        tr("OCCTDebug session (*.occtdbg);;All files (*)"));
+    if (path.isEmpty())
+    {
+        return;
+    }
+
+    DebugSession session;
+    session.version = DebugSession::kCurrentVersion;
+    session.createdAt = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs).toStdString();
+    session.problem = m_problem;
+    session.diagnostics = m_findings;
+    session.selectedShapeId = m_selectedShapeId;
+
+    for (const std::string& p : m_problem.inputFiles)
+    {
+        SessionInput in;
+        in.path = SessionSerializer::toStoredPath(QString::fromStdString(p), path).toStdString();
+        in.type = "brep";
+        in.role = "primary";
+        session.inputs.push_back(std::move(in));
+    }
+
+    QString err;
+    if (!SessionSerializer::save(path, session, &err))
+    {
+        QMessageBox::warning(this, tr("Session"), err);
+        return;
+    }
+
+    m_sessionFilePath = path;
+    Logger::info(tr("Saved session: %1").arg(path));
+    statusBar()->showMessage(tr("Saved session %1").arg(path));
+}
+
+void MainWindow::onOpenSession()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Open session"),
+        QString(),
+        tr("OCCTDebug session (*.occtdbg);;All files (*)"));
+    if (path.isEmpty())
+    {
+        return;
+    }
+
+    DebugSession session;
+    QString err;
+    if (!SessionSerializer::load(path, &session, &err))
+    {
+        QMessageBox::warning(this, tr("Session"), err);
+        return;
+    }
+
+    QString brepResolved;
+    for (const SessionInput& in : session.inputs)
+    {
+        const QString rawPath = QString::fromStdString(in.path);
+        const QString type = QString::fromStdString(in.type);
+        if (type.compare(QStringLiteral("brep"), Qt::CaseInsensitive) == 0
+            || rawPath.endsWith(QStringLiteral(".brep"), Qt::CaseInsensitive)
+            || rawPath.endsWith(QStringLiteral(".BREP"), Qt::CaseInsensitive))
+        {
+            brepResolved = SessionSerializer::resolveInputPath(rawPath, path);
+            break;
+        }
+    }
+    if (brepResolved.isEmpty() && !session.problem.inputFiles.empty())
+    {
+        brepResolved =
+            SessionSerializer::resolveInputPath(QString::fromStdString(session.problem.inputFiles.front()), path);
+    }
+
+    if (brepResolved.isEmpty() || !QFileInfo::exists(brepResolved))
+    {
+        QMessageBox::warning(
+            this,
+            tr("Session"),
+            tr("Could not find the BREP file for this session. Check paths relative to the session file."));
+        return;
+    }
+
+    if (!openBrepPath(brepResolved, &err))
+    {
+        QMessageBox::warning(this, tr("Open failed"), err);
+        return;
+    }
+
+    m_problem = session.problem;
+    m_problem.inputFiles = {brepResolved.toStdString()};
+    m_findings = std::move(session.diagnostics);
+    m_diagnosticPanel->setFindings(m_findings);
+
+    m_sessionFilePath = path;
+
+    if (session.selectedShapeId >= 0 && m_document.FindNode(session.selectedShapeId) != nullptr)
+    {
+        m_shapeTree->selectShapeId(session.selectedShapeId);
+    }
+
+    Logger::info(tr("Opened session: %1").arg(path));
+    statusBar()->showMessage(tr("Session %1").arg(path));
 }
 
 void MainWindow::onRunDiagnostics()
@@ -193,6 +344,34 @@ void MainWindow::onExportMarkdown()
     Logger::info(tr("Exported Markdown: %1").arg(path));
 }
 
+void MainWindow::onExportMinimalRepro()
+{
+    if (m_document.RootShape().IsNull() || m_problem.inputFiles.empty())
+    {
+        QMessageBox::information(this, tr("Export"), tr("Load a BREP first."));
+        return;
+    }
+
+    const QString dir = QFileDialog::getExistingDirectory(
+        this,
+        tr("Select folder for minimal repro package"),
+        QFileInfo(QString::fromStdString(m_problem.inputFiles.front())).absolutePath());
+    if (dir.isEmpty())
+    {
+        return;
+    }
+
+    const QString brep = QFileInfo(QString::fromStdString(m_problem.inputFiles.front())).absoluteFilePath();
+    QString err;
+    if (!ReproPackageExporter::exportMinimalPackage(dir, m_problem, brep, m_findings, &err))
+    {
+        QMessageBox::warning(this, tr("Export"), err);
+        return;
+    }
+    Logger::info(tr("Exported minimal repro to %1").arg(dir));
+    statusBar()->showMessage(tr("Minimal repro exported to %1").arg(dir));
+}
+
 void MainWindow::onExportShapeJson()
 {
     if (m_document.RootShape().IsNull())
@@ -222,6 +401,7 @@ void MainWindow::onExportShapeJson()
 
 void MainWindow::onShapeSelected(int shapeId)
 {
+    m_selectedShapeId = shapeId;
     m_propertyPanel->showShape(m_document, shapeId);
     if (shapeId < 0)
     {
@@ -241,6 +421,7 @@ void MainWindow::onShapeSelected(int shapeId)
 
 void MainWindow::onFindingActivated(int shapeId)
 {
+    m_selectedShapeId = shapeId;
     if (shapeId >= 0)
     {
         m_shapeTree->selectShapeId(shapeId);

@@ -37,9 +37,13 @@ public:
     void setHighlightShape(const TopoDS_Shape& shape);
     void fitAll();
 
+    bool showBoundingBox() const;
+
 public slots:
     /// Called after QSplitter drags; layout may settle one tick later than resize.
     void deferViewportSync();
+    /// When true (default), show axis-aligned bounding box wire for the highlighted sub-shape (Windows).
+    void setShowBoundingBox(bool on);
 
 protected:
 #if defined(_WIN32)
@@ -65,12 +69,15 @@ private:
     void syncOcctViewport();
     qreal effectiveDevicePixelRatio() const;
     void scheduleDeferredViewportSync();
+    void updateBboxAis();
     QPoint mapToOcctPixels(const QPointF& pos) const;
 
     QTimer* m_deferredViewportTimer = nullptr;
 
     std::unique_ptr<ViewerOcctData> m_occt;
+    TopoDS_Shape m_lastHighlight;
 #endif
+    bool m_showBoundingBox = true;
 #ifndef _WIN32
     QLabel* m_stubLabel = nullptr;
 #endif

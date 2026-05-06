@@ -58,15 +58,22 @@ set(OCCTDEBUG_SOURCES
     core/ShapeNode.h
     core/ShapeKind.cpp
     core/ShapeKind.h
+    core/DebugSession.h
     core/DiagnosticFinding.h
     core/ProblemContext.h
     occt/OcctUtils.h
+    occt/BBoxWire.cpp
+    occt/BBoxWire.h
     occt/ShapeInspector.cpp
     occt/ShapeInspector.h
     io/BRepLoader.cpp
     io/BRepLoader.h
     io/MarkdownReportExporter.cpp
     io/MarkdownReportExporter.h
+    io/ReproPackageExporter.cpp
+    io/ReproPackageExporter.h
+    io/SessionSerializer.cpp
+    io/SessionSerializer.h
     io/ShapeTreeJsonExporter.cpp
     io/ShapeTreeJsonExporter.h
     diagnose/DiagnosticEngine.cpp
