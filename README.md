@@ -24,7 +24,7 @@
 - **OCCT**：按 `cmake/occt_setup_install.cmake` 从 `depends/occt` 解析头文件与库（与 `F:\data\github\MovementPath` 相同约定）
 - **FreeType**：按 `cmake/occt_3rdpart_setup_install.cmake` 从 `depends/occt_3rdparty\freetype-2.13.3-x64` 解析
 
-### Qt 路径（与 MovementPath / PathPlanningWorkbench 相同思路）
+### Qt 路径
 
 配置时会**先用当前的 `CMAKE_PREFIX_PATH` / `Qt6_DIR` 查找 Qt6**（适合已在 Visual Studio「CMake 变量」或 `CMakeSettings.json` 里配置过 Qt 的情况）。若仍未找到，再使用下面任一方式：
 
