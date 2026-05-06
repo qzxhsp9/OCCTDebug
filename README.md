@@ -13,7 +13,7 @@
 |------|------|
 | `src/` | 应用源码与入口 |
 | `cmake/` | CMake 辅助脚本（查找依赖、工具链等） |
-| `depends/` | 预置 OCCT / FreeType 布局（与本地 `MovementPath` 工程一致：`depends/occt`、`depends/occt_3rdparty/...`） |
+| `depends/` | 预置 OCCT / FreeType 布局（`depends/occt`、`depends/occt_3rdparty/...`） |
 | `doc/` | 设计文档、使用说明、调试笔记 |
 
 ## 依赖
@@ -21,7 +21,7 @@
 - CMake 3.20+
 - 支持 C++17 的编译器（MSVC 2019+、GCC 10+、Clang 12+ 等）
 - Qt6（Core、Gui、Widgets）
-- **OCCT**：按 `cmake/occt_setup_install.cmake` 从 `depends/occt` 解析头文件与库（与 `F:\data\github\MovementPath` 相同约定）
+- **OCCT**：按 `cmake/occt_setup_install.cmake` 从 `depends/occt` 解析头文件与库
 - **FreeType**：按 `cmake/occt_3rdpart_setup_install.cmake` 从 `depends/occt_3rdparty\freetype-2.13.3-x64` 解析
 
 ### Qt 路径
@@ -31,11 +31,11 @@
 1. 配置 CMake 时设置 **`OCCTDEBUG_QT_ROOT`** 指向含 `lib/cmake/Qt6` 的 Qt 安装根目录，或  
 2. 将 `src/QtWorkbenchDefaults.cmake.example` 复制为 **`src/QtWorkbenchDefaults.cmake`**（已 gitignore），在其中设置 **`OCCTDEBUG_QT_DEFAULT_KIT`**。
 
-Windows 下构建完成后会尽量运行 **`windeployqt`**（或回退为复制 `bin` 与 `plugins/platforms`），并把 **OCCT / FreeType** 的 DLL 拷到可执行文件目录（与 MovementPath 中 PathPlanningWorkbench 行为一致）。
+Windows 下构建完成后会尽量运行 **`windeployqt`**（或回退为复制 `bin` 与 `plugins/platforms`），并把 **OCCT / FreeType** 的 DLL 拷到可执行文件目录。
 
 ## 构建
 
-单配置生成器需指定 **`CMAKE_BUILD_TYPE`**（与 MovementPath 的 OCCT 脚本一致），以便选中 `depends/occt` 下对应 Debug/Release 库目录。
+单配置生成器需指定 **`CMAKE_BUILD_TYPE`**，以便选中 `depends/occt` 下对应 Debug/Release 库目录。
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
