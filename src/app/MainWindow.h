@@ -9,6 +9,9 @@
 
 #include <QString>
 
+class QEvent;
+class QShowEvent;
+
 #include <vector>
 class DiagnosticPanel;
 class PropertyPanel;
@@ -23,6 +26,10 @@ class MainWindow final : public QMainWindow
 
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+
+protected:
+    void showEvent(QShowEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private slots:
     void onOpenBrep();
@@ -54,4 +61,7 @@ private:
 
     QString m_sessionFilePath;
     int m_selectedShapeId = -1;
+
+    /// For focusObjectChanged (Qt6): previous focused widget to detect leaving/entering the viewer.
+    QWidget* m_prevFocusWidget = nullptr;
 };

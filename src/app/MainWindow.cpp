@@ -27,8 +27,13 @@
 #include <QSplitter>
 #include <QFile>
 #include <QIODevice>
+#include <QApplication>
+#include <QGuiApplication>
 #include <QStatusBar>
+#include <QShowEvent>
+#include <QTimer>
 #include <QVBoxLayout>
+#include <QEvent>
 
 #include <TopoDS_Shape.hxx>
 
@@ -140,10 +145,61 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_shapeTree, &ShapeTreeWidget::shapeSelected, this, &MainWindow::onShapeSelected);
     connect(m_diagnosticPanel, &DiagnosticPanel::findingActivated, this, &MainWindow::onFindingActivated);
 
+    // Qt6: QApplication::focusChanged was removed; use QGuiApplication::focusObjectChanged.
+    connect(qApp, &QGuiApplication::focusObjectChanged, this, [this](QObject* focusObject) {
+        if (m_viewer == nullptr)
+        {
+            return;
+        }
+        auto* newWidget = qobject_cast<QWidget*>(focusObject);
+        const auto underViewer = [this](QWidget* w) -> bool {
+            return w != nullptr && (w == m_viewer || m_viewer->isAncestorOf(w));
+        };
+        const bool oldUnderViewer = underViewer(m_prevFocusWidget);
+        const bool newUnderViewer = underViewer(newWidget);
+        if (oldUnderViewer || newUnderViewer)
+        {
+            m_viewer->refreshPresentation();
+        }
+        m_prevFocusWidget = newWidget;
+    });
+
+    connect(qGuiApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+        if (m_viewer != nullptr && state == Qt::ApplicationActive)
+        {
+            m_viewer->refreshPresentation();
+        }
+    });
+
     statusBar()->showMessage(tr("OCCT %1 — open a BREP or STEP model to begin.")
                                  .arg(QString::fromLatin1(OCC_VERSION_STRING)));
 
     updateWindowTitle();
+}
+
+void MainWindow::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+    if (m_viewer != nullptr)
+    {
+        m_viewer->refreshPresentation();
+    }
+    // First layout pass often runs after this event; refresh again on the next tick.
+    QTimer::singleShot(0, this, [this]() {
+        if (m_viewer != nullptr)
+        {
+            m_viewer->refreshPresentation();
+        }
+    });
+}
+
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::WindowActivate && isActiveWindow() && m_viewer != nullptr)
+    {
+        m_viewer->refreshPresentation();
+    }
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::applyProblemDefaults()
@@ -185,6 +241,7 @@ bool MainWindow::openBrepPath(const QString& path, QString* errorOut)
     {
         m_topologyPanel->inspect(m_document, -1);
     }
+    m_viewer->refreshPresentation();
     return true;
 }
 

@@ -6,6 +6,7 @@
 #include <cmath>
 
 #include <QLabel>
+#include <QFocusEvent>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QResizeEvent>
@@ -51,7 +52,15 @@ namespace
 {
 void physicalWidgetPixels(const QWidget* w, int& outW, int& outH)
 {
-    const qreal dpr = w->devicePixelRatioF() > 0.0 ? w->devicePixelRatioF() : 1.0;
+    qreal dpr = w->devicePixelRatioF() > 0.0 ? w->devicePixelRatioF() : 1.0;
+    if (const QWidget* top = w->window())
+    {
+        const qreal topDpr = top->devicePixelRatioF() > 0.0 ? top->devicePixelRatioF() : 1.0;
+        if (topDpr > dpr)
+        {
+            dpr = topDpr;
+        }
+    }
     const int lw = std::max(1, w->width());
     const int lh = std::max(1, w->height());
     outW = std::max(1, static_cast<int>(std::ceil(static_cast<qreal>(lw) * dpr)));
@@ -144,7 +153,7 @@ void ViewerWidget::ensureOcctInitialized()
     }
 
     m_occt->display = new Aspect_DisplayConnection();
-    m_occt->driver = new OpenGl_GraphicDriver(m_occt->display, false);
+    m_occt->driver = new OpenGl_GraphicDriver(m_occt->display);
     m_occt->viewer = new V3d_Viewer(m_occt->driver);
     m_occt->viewer->SetDefaultLights();
     m_occt->viewer->SetLightOn();
@@ -190,7 +199,7 @@ void ViewerWidget::flushView()
         return;
     }
     syncOcctViewport();
-    m_occt->view->RedrawImmediate();
+    m_occt->view->Redraw();
 }
 
 void ViewerWidget::syncOcctViewport()
@@ -262,6 +271,19 @@ void ViewerWidget::deferViewportSync()
 {
 #if defined(_WIN32)
     ensureOcctInitialized();
+    flushView();
+#endif
+}
+
+void ViewerWidget::refreshPresentation()
+{
+#if defined(_WIN32)
+    ensureOcctInitialized();
+    if (!m_occt || !m_occt->initialized || m_occt->context.IsNull())
+    {
+        return;
+    }
+    m_occt->context->UpdateCurrentViewer();
     flushView();
 #endif
 }
@@ -413,8 +435,26 @@ void ViewerWidget::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
 #if defined(_WIN32)
-    ensureOcctInitialized();
-    flushView();
+    refreshPresentation();
+#endif
+}
+
+void ViewerWidget::focusInEvent(QFocusEvent* event)
+{
+    QWidget::focusInEvent(event);
+#if defined(_WIN32)
+    refreshPresentation();
+#endif
+}
+
+void ViewerWidget::focusOutEvent(QFocusEvent* event)
+{
+    QWidget::focusOutEvent(event);
+#if defined(_WIN32)
+    if (m_occt && m_occt->initialized && !m_occt->view.IsNull())
+    {
+        update();
+    }
 #endif
 }
 
