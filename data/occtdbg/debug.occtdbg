@@ -1,0 +1,32 @@
+{
+    "createdAt": "2026-05-06T15:23:41.671Z",
+    "diagnostics": [
+    ],
+    "format": "occtdbg",
+    "inputs": [
+        {
+            "path": "case/input.brep",
+            "role": "primary",
+            "type": "brep"
+        }
+    ],
+    "operations": [
+    ],
+    "problem": {
+        "buildType": "Debug",
+        "category": "Unknown",
+        "compiler": "MSVC 1950",
+        "description": "",
+        "inputFiles": [
+            "case/input.brep"
+        ],
+        "occtVersion": "7.9",
+        "parameters": {
+        },
+        "title": ""
+    },
+    "ui": {
+        "selectedShapeId": -1
+    },
+    "version": 1
+}

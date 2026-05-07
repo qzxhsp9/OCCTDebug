@@ -1,5 +1,6 @@
 #include "ui/PropertyPanel.h"
 
+#include "occt/GeometrySummary.h"
 #include "occt/OcctUtils.h"
 
 #include <QTextBrowser>
@@ -58,6 +59,8 @@ void PropertyPanel::showShape(const ShapeDocument& document, int shapeId)
     {
         html += QStringLiteral("<br/>Bounding box: void<br/>");
     }
+
+    html += OcctGeometrySummaryHtml(n->shape);
 
     m_text->setHtml(html);
 }

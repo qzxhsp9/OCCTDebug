@@ -15,8 +15,6 @@ class QPaintEvent;
 class QResizeEvent;
 class QShowEvent;
 class QWheelEvent;
-class QEvent;
-class QTimer;
 
 #if defined(_WIN32)
 struct ViewerOcctData;
@@ -25,6 +23,9 @@ class QLabel;
 #endif
 
 /// OCCT AIS + V3d view (Windows). Other platforms show a stub message.
+///
+/// Call refreshPresentation() from the shell when the top-level window is shown/activated or when
+/// keyboard focus crosses the viewer so AIS + backing store stay in sync (embedded OCCT contract).
 class ViewerWidget final : public QWidget
 {
     Q_OBJECT
@@ -37,9 +38,14 @@ public:
     void setHighlightShape(const TopoDS_Shape& shape);
     void fitAll();
 
+    bool showBoundingBox() const;
+
 public slots:
-    /// Called after QSplitter drags; layout may settle one tick later than resize.
+    /// Resize backing store + redraw (e.g. splitter drag). Does not force AIS update.
     void deferViewportSync();
+    /// Push AIS state to the viewer and full redraw — use after window show/activate/focus changes.
+    void refreshPresentation();
+    void setShowBoundingBox(bool on);
 
 protected:
 #if defined(_WIN32)
@@ -55,22 +61,22 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
-    void changeEvent(QEvent* event) override;
 
 private:
     void ensureOcctInitialized();
-    void redrawView();
-
 #if defined(_WIN32)
+    void flushView();
+    void presentOnly();
+
     void syncOcctViewport();
-    qreal effectiveDevicePixelRatio() const;
-    void scheduleDeferredViewportSync();
+    void updateBboxAis();
     QPoint mapToOcctPixels(const QPointF& pos) const;
 
-    QTimer* m_deferredViewportTimer = nullptr;
-
     std::unique_ptr<ViewerOcctData> m_occt;
+    TopoDS_Shape m_lastHighlight;
+    bool m_inPaintFlush = false;
 #endif
+    bool m_showBoundingBox = true;
 #ifndef _WIN32
     QLabel* m_stubLabel = nullptr;
 #endif

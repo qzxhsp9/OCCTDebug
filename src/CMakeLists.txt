@@ -58,15 +58,26 @@ set(OCCTDEBUG_SOURCES
     core/ShapeNode.h
     core/ShapeKind.cpp
     core/ShapeKind.h
+    core/DebugSession.h
     core/DiagnosticFinding.h
     core/ProblemContext.h
     occt/OcctUtils.h
+    occt/BBoxWire.cpp
+    occt/BBoxWire.h
+    occt/GeometrySummary.cpp
+    occt/GeometrySummary.h
+    occt/FaceUvExtractor.cpp
+    occt/FaceUvExtractor.h
     occt/ShapeInspector.cpp
     occt/ShapeInspector.h
     io/BRepLoader.cpp
     io/BRepLoader.h
     io/MarkdownReportExporter.cpp
     io/MarkdownReportExporter.h
+    io/ReproPackageExporter.cpp
+    io/ReproPackageExporter.h
+    io/SessionSerializer.cpp
+    io/SessionSerializer.h
     io/ShapeTreeJsonExporter.cpp
     io/ShapeTreeJsonExporter.h
     diagnose/DiagnosticEngine.cpp
@@ -94,6 +105,12 @@ set(OCCTDEBUG_SOURCES
     ui/DiagnosticPanel.h
     ui/ViewerWidget.cpp
     ui/ViewerWidget.h
+    ui/FaceUvCanvasWidget.cpp
+    ui/FaceUvCanvasWidget.h
+    ui/EdgeSchematicWidget.cpp
+    ui/EdgeSchematicWidget.h
+    ui/TopologyDetailPanel.cpp
+    ui/TopologyDetailPanel.h
 )
 
 qt_add_executable(OCCTDebug
