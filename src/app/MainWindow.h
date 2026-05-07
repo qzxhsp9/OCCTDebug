@@ -56,7 +56,7 @@ private:
     PropertyPanel* m_propertyPanel = nullptr;
     DiagnosticPanel* m_diagnosticPanel = nullptr;
     ViewerWidget* m_viewer = nullptr;
-    QDockWidget* m_topologyDock = nullptr;
+    QDockWidget* m_diagnosticDock = nullptr;
     TopologyDetailPanel* m_topologyPanel = nullptr;
 
     QString m_sessionFilePath;

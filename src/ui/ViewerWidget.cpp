@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QFocusEvent>
 #include <QMouseEvent>
+#include <QPaintEngine>
 #include <QPaintEvent>
 #include <QResizeEvent>
 #include <QShowEvent>
@@ -75,6 +76,7 @@ ViewerWidget::ViewerWidget(QWidget* parent)
 {
 #if defined(_WIN32)
     setAttribute(Qt::WA_NativeWindow, true);
+    setAttribute(Qt::WA_PaintOnScreen, true);
     setAttribute(Qt::WA_NoSystemBackground, true);
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setMouseTracking(true);
@@ -125,6 +127,11 @@ bool ViewerWidget::nativeEvent(const QByteArray& eventType, void* message, qintp
         }
     }
     return QWidget::nativeEvent(eventType, message, result);
+}
+
+QPaintEngine* ViewerWidget::paintEngine() const
+{
+    return nullptr;
 }
 #endif
 
@@ -183,15 +190,6 @@ void ViewerWidget::ensureOcctInitialized()
 }
 
 #if defined(_WIN32)
-void ViewerWidget::presentOnly()
-{
-    if (!m_occt || !m_occt->initialized || m_occt->view.IsNull())
-    {
-        return;
-    }
-    m_occt->view->RedrawImmediate();
-}
-
 void ViewerWidget::flushView()
 {
     if (!m_occt || !m_occt->initialized || m_occt->view.IsNull())
@@ -199,6 +197,15 @@ void ViewerWidget::flushView()
         return;
     }
     syncOcctViewport();
+    m_occt->view->Redraw();
+}
+
+void ViewerWidget::redrawView()
+{
+    if (!m_occt || !m_occt->initialized || m_occt->view.IsNull())
+    {
+        return;
+    }
     m_occt->view->Redraw();
 }
 
@@ -421,7 +428,7 @@ void ViewerWidget::paintEvent(QPaintEvent* event)
         if (!m_inPaintFlush)
         {
             m_inPaintFlush = true;
-            presentOnly();
+            flushView();
             m_inPaintFlush = false;
         }
         event->accept();
@@ -491,13 +498,12 @@ void ViewerWidget::mouseMoveEvent(QMouseEvent* event)
         if (m_rotating && (event->buttons() & Qt::LeftButton))
         {
             m_occt->view->Rotation(p.x(), p.y());
-            flushView();
+            redrawView();
         }
         else if (m_panning && (event->buttons() & Qt::MiddleButton))
         {
             m_occt->view->Pan(p.x() - m_lastPos.x(), m_lastPos.y() - p.y(), 1.0, Standard_False);
-            m_lastPos = p;
-            flushView();
+            redrawView();
         }
         return;
     }

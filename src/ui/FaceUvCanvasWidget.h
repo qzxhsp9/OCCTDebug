@@ -7,7 +7,7 @@
 
 #include <vector>
 
-/// Face (u,v) parameter domain: polylines, **u/v coordinate axes**, wheel zoom **at cursor**, middle-drag pan.
+/// Face (u,v) parameter domain: polylines, u/v coordinate axes, wheel zoom, middle-drag pan.
 class FaceUvCanvasWidget final : public QWidget
 {
     Q_OBJECT

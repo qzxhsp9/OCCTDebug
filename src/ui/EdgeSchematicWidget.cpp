@@ -10,16 +10,31 @@
 
 namespace
 {
-constexpr int kMarginLeft = 48;
-constexpr int kMarginRight = 14;
-constexpr int kMarginTop = 12;
-constexpr int kMarginBottom = 38;
+constexpr int kMarginLeft = 36;
+constexpr int kMarginRight = 8;
+constexpr int kMarginTop = 8;
+constexpr int kMarginBottom = 24;
 constexpr double kZoomFactorPerNotch = 1.14;
 constexpr double kMinSpan = 1e-6;
 
 double tolRadiusPx(double tol)
 {
     return std::clamp(-std::log10(std::max(tol, 1e-12)) * 3.0, 5.0, 38.0);
+}
+
+double logTol(double tol)
+{
+    return std::log10(std::max(tol, 1e-15));
+}
+
+void toleranceLogRange(double v0, double v1, double edge, double& lo, double& hi)
+{
+    lo = std::min({logTol(v0), logTol(v1), logTol(edge)});
+    hi = std::max({logTol(v0), logTol(v1), logTol(edge)});
+    if (hi - lo < 0.08)
+    {
+        hi = lo + 0.5;
+    }
 }
 } // namespace
 
@@ -69,7 +84,16 @@ double EdgeSchematicWidget::tToX(double t) const
     return pr.left() + (t - m_t0) / span * pr.width();
 }
 
-void EdgeSchematicWidget::drawAxes(QPainter& p, const QRect& pr, int yMid) const
+double EdgeSchematicWidget::toleranceToY(double tol, const QRect& pr) const
+{
+    double lo = 0.0;
+    double hi = 1.0;
+    toleranceLogRange(m_v0, m_v1, m_edge, lo, hi);
+    const double yn = (logTol(tol) - lo) / (hi - lo);
+    return pr.bottom() - yn * pr.height();
+}
+
+void EdgeSchematicWidget::drawAxes(QPainter& p, const QRect& pr) const
 {
     p.setPen(QPen(QColor(130, 130, 140), 1));
     p.drawLine(pr.left(), pr.bottom(), pr.right(), pr.bottom());
@@ -77,22 +101,10 @@ void EdgeSchematicWidget::drawAxes(QPainter& p, const QRect& pr, int yMid) const
 
     p.setPen(QColor(55, 55, 65));
     p.drawText(pr.right() - 16, pr.bottom() + 26, QStringLiteral("t"));
-    p.drawText(pr.left() - 36, pr.top() + 12, QStringLiteral("δ"));
+    p.drawText(pr.left() - 34, pr.top() + 12, QStringLiteral("tol"));
 
-    // δ reference lines: log10 scale from min to max of the three tolerances
-    const double lv0 = std::log10(std::max(m_v0, 1e-15));
-    const double lv1 = std::log10(std::max(m_v1, 1e-15));
-    const double lve = std::log10(std::max(m_edge, 1e-15));
-    double lo = std::min({lv0, lv1, lve});
-    double hi = std::max({lv0, lv1, lve});
-    if (hi - lo < 0.08)
-    {
-        hi = lo + 0.5;
-    }
-    const double lspan = hi - lo;
-    auto drawTolLine = [&](double lv, const QString& label, const QColor& col) {
-        const double yn = (lv - lo) / lspan;
-        const int y = static_cast<int>(std::lround(pr.bottom() - yn * pr.height()));
+    auto drawTolLine = [&](double tol, const QString& label, const QColor& col) {
+        const int y = static_cast<int>(std::lround(toleranceToY(tol, pr)));
         if (y < pr.top() || y > pr.bottom())
         {
             return;
@@ -102,11 +114,10 @@ void EdgeSchematicWidget::drawAxes(QPainter& p, const QRect& pr, int yMid) const
         p.setPen(col);
         p.drawText(pr.left() + 10, y - 2, label);
     };
-    drawTolLine(lv0, QStringLiteral("v0"), QColor(60, 120, 220));
-    drawTolLine(lv1, QStringLiteral("v1"), QColor(200, 110, 50));
-    drawTolLine(lve, QStringLiteral("e"), QColor(120, 60, 180));
+    drawTolLine(m_v0, QStringLiteral("v0"), QColor(60, 120, 220));
+    drawTolLine(m_v1, QStringLiteral("v1"), QColor(200, 110, 50));
+    drawTolLine(m_edge, QStringLiteral("e"), QColor(120, 60, 180));
 
-    // t ticks 0, 0.25, … 1 when visible
     p.setPen(QPen(QColor(210, 210, 218), 1, Qt::DotLine));
     for (int i = 0; i <= 4; ++i)
     {
@@ -119,8 +130,9 @@ void EdgeSchematicWidget::drawAxes(QPainter& p, const QRect& pr, int yMid) const
         p.drawLine(x, pr.bottom() - 4, x, pr.bottom());
     }
 
+    const int yEdge = static_cast<int>(std::lround(toleranceToY(m_edge, pr)));
     p.setPen(QPen(QColor(70, 70, 80), 2));
-    p.drawLine(pr.left(), yMid, pr.right(), yMid);
+    p.drawLine(pr.left(), yEdge, pr.right(), yEdge);
 }
 
 void EdgeSchematicWidget::paintEvent(QPaintEvent* event)
@@ -136,14 +148,13 @@ void EdgeSchematicWidget::paintEvent(QPaintEvent* event)
         return;
     }
 
-    const int yMid = pr.center().y();
-    drawAxes(p, pr, yMid);
+    drawAxes(p, pr);
 
     const double r0 = tolRadiusPx(m_v0);
     const double r1 = tolRadiusPx(m_v1);
     const double re = tolRadiusPx(m_edge);
 
-    auto drawIfVisible = [&](double t, double rad, const QColor& stroke, const QColor& fill) {
+    auto drawIfVisible = [&](double t, double tol, double rad, const QColor& stroke, const QColor& fill) {
         if (t < m_t0 - 1e-12 || t > m_t1 + 1e-12)
         {
             return;
@@ -155,11 +166,11 @@ void EdgeSchematicWidget::paintEvent(QPaintEvent* event)
         }
         p.setPen(QPen(stroke, 1));
         p.setBrush(fill);
-        p.drawEllipse(QPointF(x, static_cast<double>(yMid)), rad, rad);
+        p.drawEllipse(QPointF(x, toleranceToY(tol, pr)), rad, rad);
     };
 
-    drawIfVisible(0.0, r0, QColor(30, 80, 160), QColor(60, 120, 220, 200));
-    drawIfVisible(1.0, r1, QColor(160, 80, 30), QColor(230, 130, 60, 200));
+    drawIfVisible(0.0, m_v0, r0, QColor(30, 80, 160), QColor(60, 120, 220, 200));
+    drawIfVisible(1.0, m_v1, r1, QColor(160, 80, 30), QColor(230, 130, 60, 200));
 
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(120, 60, 180, 160));
@@ -172,13 +183,9 @@ void EdgeSchematicWidget::paintEvent(QPaintEvent* event)
             continue;
         }
         const double x = tToX(t);
-        p.drawEllipse(QPointF(x, static_cast<double>(yMid)), re * 0.22, re * 0.22);
+        p.drawEllipse(QPointF(x, toleranceToY(m_edge, pr)), re * 0.22, re * 0.22);
     }
 
-    p.setPen(QColor(70, 70, 82));
-    p.setBrush(Qt::NoBrush);
-    p.drawText(kMarginLeft, height() - 6,
-               QStringLiteral("Wheel: zoom t at cursor · Middle drag: pan · Double-click: fit 0–1"));
 }
 
 void EdgeSchematicWidget::wheelEvent(QWheelEvent* event)

@@ -84,11 +84,12 @@ MainWindow::MainWindow(QWidget* parent)
 
     auto* rightSplitter = new QSplitter(Qt::Vertical, central);
     m_viewer = new ViewerWidget(rightSplitter);
-    m_diagnosticPanel = new DiagnosticPanel(rightSplitter);
+    m_topologyPanel = new TopologyDetailPanel(rightSplitter);
     rightSplitter->addWidget(m_viewer);
-    rightSplitter->addWidget(m_diagnosticPanel);
+    rightSplitter->addWidget(m_topologyPanel);
     rightSplitter->setStretchFactor(0, 2);
     rightSplitter->setStretchFactor(1, 1);
+    rightSplitter->setSizes({480, 240});
 
     auto* horiz = new QSplitter(Qt::Horizontal, central);
     horiz->addWidget(leftSplitter);
@@ -102,11 +103,11 @@ MainWindow::MainWindow(QWidget* parent)
     mainLayout->addWidget(horiz);
     setCentralWidget(central);
 
-    m_topologyDock = new QDockWidget(tr("Topology detail"), this);
-    m_topologyDock->setObjectName(QStringLiteral("TopologyDetailDock"));
-    m_topologyPanel = new TopologyDetailPanel(m_topologyDock);
-    m_topologyDock->setWidget(m_topologyPanel);
-    addDockWidget(Qt::RightDockWidgetArea, m_topologyDock);
+    m_diagnosticDock = new QDockWidget(tr("Diagnostic log"), this);
+    m_diagnosticDock->setObjectName(QStringLiteral("DiagnosticDock"));
+    m_diagnosticPanel = new DiagnosticPanel(m_diagnosticDock);
+    m_diagnosticDock->setWidget(m_diagnosticPanel);
+    addDockWidget(Qt::RightDockWidgetArea, m_diagnosticDock);
 
     auto* fileMenu = menuBar()->addMenu(tr("&File"));
     auto* openAct = fileMenu->addAction(tr("Open &model…"));
@@ -133,14 +134,30 @@ MainWindow::MainWindow(QWidget* parent)
 
     auto* viewMenu = menuBar()->addMenu(tr("&View"));
     connect(viewMenu->addAction(tr("&Fit all")), &QAction::triggered, m_viewer, &ViewerWidget::fitAll);
-    auto* topoDockAct = viewMenu->addAction(tr("&Topology detail dock"));
-    topoDockAct->setCheckable(true);
-    topoDockAct->setChecked(true);
-    connect(topoDockAct, &QAction::toggled, m_topologyDock, &QWidget::setVisible);
+    auto* diagDockAct = viewMenu->addAction(tr("&Diagnostic log dock"));
+    diagDockAct->setCheckable(true);
+    diagDockAct->setChecked(true);
+    connect(diagDockAct, &QAction::toggled, m_diagnosticDock, &QWidget::setVisible);
     auto* bboxAct = viewMenu->addAction(tr("Show &bounding box"));
     bboxAct->setCheckable(true);
     bboxAct->setChecked(m_viewer->showBoundingBox());
     connect(bboxAct, &QAction::toggled, m_viewer, &ViewerWidget::setShowBoundingBox);
+
+    auto* helpMenu = menuBar()->addMenu(tr("&Help"));
+    connect(helpMenu->addAction(tr("&Mouse controls")), &QAction::triggered, this, [this]() {
+        QMessageBox::information(
+            this,
+            tr("Mouse controls"),
+            tr("3D view:\n"
+               "- Left drag: rotate\n"
+               "- Middle drag: pan\n"
+               "- Wheel: zoom\n"
+               "- Double-click: fit all\n\n"
+               "Topology detail:\n"
+               "- Middle drag: pan\n"
+               "- Wheel: zoom\n"
+               "- Double-click: fit"));
+    });
 
     connect(m_shapeTree, &ShapeTreeWidget::shapeSelected, this, &MainWindow::onShapeSelected);
     connect(m_diagnosticPanel, &DiagnosticPanel::findingActivated, this, &MainWindow::onFindingActivated);
