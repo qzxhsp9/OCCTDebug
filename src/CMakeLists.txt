@@ -64,6 +64,10 @@ set(OCCTDEBUG_SOURCES
     occt/OcctUtils.h
     occt/BBoxWire.cpp
     occt/BBoxWire.h
+    occt/GeometrySummary.cpp
+    occt/GeometrySummary.h
+    occt/FaceUvExtractor.cpp
+    occt/FaceUvExtractor.h
     occt/ShapeInspector.cpp
     occt/ShapeInspector.h
     io/BRepLoader.cpp
@@ -101,6 +105,12 @@ set(OCCTDEBUG_SOURCES
     ui/DiagnosticPanel.h
     ui/ViewerWidget.cpp
     ui/ViewerWidget.h
+    ui/FaceUvCanvasWidget.cpp
+    ui/FaceUvCanvasWidget.h
+    ui/EdgeSchematicWidget.cpp
+    ui/EdgeSchematicWidget.h
+    ui/TopologyDetailPanel.cpp
+    ui/TopologyDetailPanel.h
 )
 
 qt_add_executable(OCCTDebug

@@ -12,8 +12,10 @@
 #include <vector>
 class DiagnosticPanel;
 class PropertyPanel;
+class QDockWidget;
 class ShapeTreeWidget;
 class ViewerWidget;
+class TopologyDetailPanel;
 
 class MainWindow final : public QMainWindow
 {
@@ -47,6 +49,8 @@ private:
     PropertyPanel* m_propertyPanel = nullptr;
     DiagnosticPanel* m_diagnosticPanel = nullptr;
     ViewerWidget* m_viewer = nullptr;
+    QDockWidget* m_topologyDock = nullptr;
+    TopologyDetailPanel* m_topologyPanel = nullptr;
 
     QString m_sessionFilePath;
     int m_selectedShapeId = -1;

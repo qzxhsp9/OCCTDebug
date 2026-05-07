@@ -28,7 +28,7 @@ JSON UTF-8 files used by **OCCTDebug** (Milestone 4). Extension suggestion: `.oc
 Each element:
 
 - `path` — absolute or relative to the directory containing the `.occtdbg` file.
-- `type` — e.g. `"brep"`.
+- `type` — `"brep"` or `"step"` (used when resolving loaders).
 - `role` — e.g. `"primary"`.
 
 ## `diagnostics[]`
@@ -49,8 +49,8 @@ Implementation: `io/SessionSerializer.cpp`, model: `core/DebugSession.h`.
 
 **Export → Minimal repro folder…** writes into a user-chosen directory:
 
-- `case/input.brep` — copy of the primary loaded model  
-- `debug.occtdbg` — session v1 with `inputs[0].path` = `case/input.brep` (portable)  
+- `case/<filename>` — copy of the primary loaded file (same extension as the source, e.g. `.brep` or `.stp`)  
+- `debug.occtdbg` — session v1 with `inputs[0].path` pointing under `case/` (portable)  
 - `README.txt` — short open instructions  
 
 Opening `debug.occtdbg` resolves `case/input.brep` relative to the session file directory. Implementation: `io/ReproPackageExporter.cpp`.

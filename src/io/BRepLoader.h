@@ -10,6 +10,7 @@ struct BRepLoadResult
     TopoDS_Shape shape;
 };
 
+/// Loads `.brep` via `BRepTools::Read`, or `.stp` / `.step` via `STEPControl_Reader`.
 class BRepLoader
 {
 public:

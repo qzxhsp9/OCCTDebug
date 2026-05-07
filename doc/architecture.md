@@ -6,11 +6,11 @@
 
 | 层次 | 目录 | 职责 |
 |------|------|------|
-| App / UI | `src/app/`, `src/ui/` | 主窗口、Shape 树、属性、诊断列表；`ViewerWidget` 在 Windows 上嵌入 `AIS_InteractiveContext` / `V3d_View`（非 Windows 为占位说明） |
+| App / UI | `src/app/`, `src/ui/` | 主窗口、Shape 树、属性、诊断列表；`ViewerWidget`（Windows AIS/V3d）；`TopologyDetailDock`（Face 参数域 UV、`EdgeSchematicWidget`、Vertex 邻边列表） |
 | Debug Session（部分） | `core/ProblemContext.h` | 问题元数据、构建信息；完整会话见里程碑 4 |
 | Data Capture | `src/occt/ShapeInspector.*` | 从 `TopoDS_Shape` 构建 `ShapeDocument` 与拓扑树元数据 |
 | Diagnostic Engine | `src/diagnose/` | 规则接口、注册表、引擎调度 |
-| IO | `src/io/` | BREP 加载、Markdown 报告、Shape 树 JSON、`.occtdbg`（`SessionSerializer`）、最小复现目录（`ReproPackageExporter`） |
+| IO | `src/io/` | BREP/STEP 加载、Markdown 报告、Shape 树 JSON、`.occtdbg`（`SessionSerializer`）、最小复现目录（`ReproPackageExporter`） |
 | Knowledge | `knowledge/`（占位） | 规则/案例/API 知识库，里程碑 6 扩展 |
 
 ## 数据流

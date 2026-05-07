@@ -6,16 +6,12 @@
 #include <cmath>
 
 #include <QLabel>
-#include <QEvent>
-#include <QFocusEvent>
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QResizeEvent>
 #include <QShowEvent>
-#include <QTimer>
 #include <QVBoxLayout>
 #include <QWheelEvent>
-#include <QWindow>
 
 #if defined(_WIN32)
 
@@ -26,16 +22,16 @@
 #include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <Aspect_Handle.hxx>
+#include <Aspect_TypeOfTriedronPosition.hxx>
 #include <Graphic3d_ZLayerId.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <Quantity_Color.hxx>
 #include <Quantity_NameOfColor.hxx>
 #include <V3d_TypeOfOrientation.hxx>
+#include <V3d_TypeOfVisualization.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 #include <WNT_Window.hxx>
-
-#include "occt/BBoxWire.h"
 
 struct ViewerOcctData
 {
@@ -51,6 +47,18 @@ struct ViewerOcctData
     bool initialized = false;
 };
 
+namespace
+{
+void physicalWidgetPixels(const QWidget* w, int& outW, int& outH)
+{
+    const qreal dpr = w->devicePixelRatioF() > 0.0 ? w->devicePixelRatioF() : 1.0;
+    const int lw = std::max(1, w->width());
+    const int lh = std::max(1, w->height());
+    outW = std::max(1, static_cast<int>(std::ceil(static_cast<qreal>(lw) * dpr)));
+    outH = std::max(1, static_cast<int>(std::ceil(static_cast<qreal>(lh) * dpr)));
+}
+} // namespace
+
 #endif
 
 ViewerWidget::ViewerWidget(QWidget* parent)
@@ -63,17 +71,7 @@ ViewerWidget::ViewerWidget(QWidget* parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    // Avoid QSplitter + native child collapsing the GL surface to a thin strip.
     setMinimumHeight(64);
-    m_deferredViewportTimer = new QTimer(this);
-    m_deferredViewportTimer->setSingleShot(true);
-    connect(m_deferredViewportTimer, &QTimer::timeout, this, [this]() {
-        if (m_occt && m_occt->initialized && !m_occt->view.IsNull())
-        {
-            syncOcctViewport();
-            redrawView();
-        }
-    });
 #else
     auto* layout = new QVBoxLayout(this);
     m_stubLabel = new QLabel(
@@ -98,11 +96,6 @@ ViewerWidget::~ViewerWidget()
 #if defined(_WIN32)
 bool ViewerWidget::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
 {
-    // Windows erases HWND with WM_ERASEBKGND before paint; without handling, the GL buffer goes
-    // black after focus/click (especially after picking a sub-shape in AIS).
-    //
-    // Do not include <windows.h> here: OCCT/Qt headers can leave "MSG" incomplete or hide WM_*.
-    // Qt passes a pointer to Win32 MSG; after HWND comes UINT message (Win32/Win64).
     if (eventType == "windows_generic_MSG" && message != nullptr)
     {
         constexpr unsigned int kWmEraseBkgnd = 0x0014u;
@@ -113,8 +106,7 @@ bool ViewerWidget::nativeEvent(const QByteArray& eventType, void* message, qintp
         {
             if (m_occt && m_occt->initialized && !m_occt->view.IsNull())
             {
-                syncOcctViewport();
-                m_occt->view->Redraw();
+                flushView();
                 if (result)
                 {
                     *result = 1;
@@ -159,7 +151,6 @@ void ViewerWidget::ensureOcctInitialized()
     m_occt->view = m_occt->viewer->CreateView();
 
     const Aspect_Handle h = reinterpret_cast<Aspect_Handle>(wid);
-    // Must match V3d_View background; BLACK here leaves Win32 erase/unpainted areas black → flicker vs gray.
     m_occt->wntWindow = new WNT_Window(h, Quantity_NOC_GRAY45);
     m_occt->view->SetWindow(m_occt->wntWindow);
     if (!m_occt->wntWindow->IsMapped())
@@ -170,38 +161,36 @@ void ViewerWidget::ensureOcctInitialized()
     m_occt->context = new AIS_InteractiveContext(m_occt->viewer);
     m_occt->view->SetBackgroundColor(Quantity_Color(Quantity_NOC_GRAY45));
     m_occt->view->SetProj(V3d_TypeOfOrientation_Zup_Front);
+    m_occt->view->TriedronDisplay(
+        Aspect_TOTP_LEFT_LOWER,
+        Quantity_Color(Quantity_NOC_WHITE),
+        0.055,
+        V3d_WIREFRAME);
+
     m_occt->initialized = true;
+    m_occt->context->UpdateCurrentViewer();
+    flushView();
+#endif
+}
+
+#if defined(_WIN32)
+void ViewerWidget::presentOnly()
+{
+    if (!m_occt || !m_occt->initialized || m_occt->view.IsNull())
+    {
+        return;
+    }
+    m_occt->view->RedrawImmediate();
+}
+
+void ViewerWidget::flushView()
+{
+    if (!m_occt || !m_occt->initialized || m_occt->view.IsNull())
+    {
+        return;
+    }
     syncOcctViewport();
-    m_occt->view->Redraw();
-#endif
-}
-
-void ViewerWidget::redrawView()
-{
-#if defined(_WIN32)
-    if (m_occt && m_occt->initialized && !m_occt->view.IsNull())
-    {
-        m_occt->view->Redraw();
-    }
-#endif
-}
-
-#if defined(_WIN32)
-qreal ViewerWidget::effectiveDevicePixelRatio() const
-{
-    if (window() && window()->windowHandle())
-    {
-        return window()->windowHandle()->devicePixelRatio();
-    }
-    return devicePixelRatioF();
-}
-
-QPoint ViewerWidget::mapToOcctPixels(const QPointF& pos) const
-{
-    const qreal dpr = effectiveDevicePixelRatio();
-    return QPoint(
-        static_cast<int>(std::floor(pos.x() * dpr)),
-        static_cast<int>(std::floor(pos.y() * dpr)));
+    m_occt->view->RedrawImmediate();
 }
 
 void ViewerWidget::syncOcctViewport()
@@ -211,24 +200,25 @@ void ViewerWidget::syncOcctViewport()
         return;
     }
 
-    // Logical widget size × DPR must match the HWND client area. metric(Pdm*) can lag behind
-    // splitter/layout updates; width()/height() track the GL drawable extent more reliably.
-    const qreal dpr = effectiveDevicePixelRatio();
-    const int w = std::max(1, width());
-    const int h = std::max(1, height());
-    const int pw = std::max(1, static_cast<int>(std::ceil(static_cast<qreal>(w) * dpr)));
-    const int ph = std::max(1, static_cast<int>(std::ceil(static_cast<qreal>(h) * dpr)));
+    int pw = 1;
+    int ph = 1;
+    physicalWidgetPixels(this, pw, ph);
+
     m_occt->wntWindow->SetPos(0, 0, pw - 1, ph - 1);
     (void)m_occt->wntWindow->DoResize();
     m_occt->view->MustBeResized();
 }
 
-void ViewerWidget::scheduleDeferredViewportSync()
+QPoint ViewerWidget::mapToOcctPixels(const QPointF& pos) const
 {
-    if (m_deferredViewportTimer)
-    {
-        m_deferredViewportTimer->start(0);
-    }
+    int pw = 1;
+    int ph = 1;
+    physicalWidgetPixels(this, pw, ph);
+    const int lw = std::max(1, width());
+    const int lh = std::max(1, height());
+    const int x = static_cast<int>(std::floor(pos.x() * static_cast<qreal>(pw) / static_cast<qreal>(lw)));
+    const int y = static_cast<int>(std::floor(pos.y() * static_cast<qreal>(ph) / static_cast<qreal>(lh)));
+    return QPoint(x, y);
 }
 
 void ViewerWidget::updateBboxAis()
@@ -272,7 +262,7 @@ void ViewerWidget::deferViewportSync()
 {
 #if defined(_WIN32)
     ensureOcctInitialized();
-    scheduleDeferredViewportSync();
+    flushView();
 #endif
 }
 
@@ -288,8 +278,7 @@ void ViewerWidget::setShowBoundingBox(bool on)
     if (m_occt && m_occt->initialized)
     {
         updateBboxAis();
-        redrawView();
-        scheduleDeferredViewportSync();
+        flushView();
     }
 #endif
 }
@@ -307,8 +296,6 @@ void ViewerWidget::setRootShape(const TopoDS_Shape& root)
     {
         return;
     }
-
-    syncOcctViewport();
 
     if (!m_occt->highlightAis.IsNull())
     {
@@ -329,15 +316,18 @@ void ViewerWidget::setRootShape(const TopoDS_Shape& root)
 
     if (root.IsNull())
     {
-        m_occt->view->Redraw();
+        m_occt->context->UpdateCurrentViewer();
+        flushView();
         return;
     }
 
     m_occt->rootAis = new AIS_Shape(root);
     m_occt->context->Display(m_occt->rootAis, Standard_False);
     m_occt->context->SetDisplayMode(m_occt->rootAis, AIS_Shaded, Standard_True);
+    m_occt->context->UpdateCurrentViewer();
+    syncOcctViewport();
     m_occt->view->FitAll();
-    m_occt->view->Redraw();
+    flushView();
 #endif
 }
 
@@ -349,8 +339,6 @@ void ViewerWidget::setHighlightShape(const TopoDS_Shape& shape)
     {
         return;
     }
-
-    syncOcctViewport();
 
     if (!m_occt->highlightAis.IsNull())
     {
@@ -364,8 +352,7 @@ void ViewerWidget::setHighlightShape(const TopoDS_Shape& shape)
     {
         updateBboxAis();
         m_occt->context->UpdateCurrentViewer();
-        m_occt->view->Redraw();
-        scheduleDeferredViewportSync();
+        flushView();
         return;
     }
 
@@ -378,8 +365,7 @@ void ViewerWidget::setHighlightShape(const TopoDS_Shape& shape)
     m_occt->context->SetZLayer(m_occt->highlightAis, Graphic3d_ZLayerId_Top);
     updateBboxAis();
     m_occt->context->UpdateCurrentViewer();
-    m_occt->view->Redraw();
-    scheduleDeferredViewportSync();
+    flushView();
 #endif
 }
 
@@ -390,9 +376,9 @@ void ViewerWidget::fitAll()
     {
         return;
     }
-    syncOcctViewport();
     m_occt->view->FitAll();
-    m_occt->view->Redraw();
+    m_occt->context->UpdateCurrentViewer();
+    flushView();
 #endif
 }
 
@@ -401,12 +387,7 @@ void ViewerWidget::resizeEvent(QResizeEvent* event)
     QWidget::resizeEvent(event);
 #if defined(_WIN32)
     ensureOcctInitialized();
-    if (m_occt && m_occt->initialized && !m_occt->view.IsNull())
-    {
-        syncOcctViewport();
-        redrawView();
-        scheduleDeferredViewportSync();
-    }
+    flushView();
 #endif
 }
 
@@ -415,9 +396,12 @@ void ViewerWidget::paintEvent(QPaintEvent* event)
 #if defined(_WIN32)
     if (m_occt && m_occt->initialized && !m_occt->view.IsNull())
     {
-        // Do not call V3d_View::Redraw() inside Qt paint (WM_PAINT): it re-enters GL and causes
-        // black/gray flashing when combined with focus changes and WM_ERASEBKGND.
-        scheduleDeferredViewportSync();
+        if (!m_inPaintFlush)
+        {
+            m_inPaintFlush = true;
+            presentOnly();
+            m_inPaintFlush = false;
+        }
         event->accept();
         return;
     }
@@ -425,31 +409,12 @@ void ViewerWidget::paintEvent(QPaintEvent* event)
     QWidget::paintEvent(event);
 }
 
-void ViewerWidget::focusInEvent(QFocusEvent* event)
-{
-    QWidget::focusInEvent(event);
-#if defined(_WIN32)
-    syncOcctViewport();
-    redrawView();
-#endif
-}
-
-void ViewerWidget::focusOutEvent(QFocusEvent* event)
-{
-    QWidget::focusOutEvent(event);
-#if defined(_WIN32)
-    syncOcctViewport();
-    redrawView();
-#endif
-}
-
 void ViewerWidget::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
 #if defined(_WIN32)
     ensureOcctInitialized();
-    syncOcctViewport();
-    redrawView();
+    flushView();
 #endif
 }
 
@@ -470,7 +435,7 @@ void ViewerWidget::mousePressEvent(QMouseEvent* event)
             m_occt->view->Pan(0, 0, 1.0, Standard_True);
         }
         m_lastPos = p;
-        redrawView();
+        flushView();
         return;
     }
 #endif
@@ -486,13 +451,13 @@ void ViewerWidget::mouseMoveEvent(QMouseEvent* event)
         if (m_rotating && (event->buttons() & Qt::LeftButton))
         {
             m_occt->view->Rotation(p.x(), p.y());
-            redrawView();
+            flushView();
         }
         else if (m_panning && (event->buttons() & Qt::MiddleButton))
         {
             m_occt->view->Pan(p.x() - m_lastPos.x(), m_lastPos.y() - p.y(), 1.0, Standard_False);
             m_lastPos = p;
-            redrawView();
+            flushView();
         }
         return;
     }
@@ -513,7 +478,7 @@ void ViewerWidget::mouseReleaseEvent(QMouseEvent* event)
     }
     if (m_occt && m_occt->initialized)
     {
-        redrawView();
+        flushView();
     }
 #endif
     QWidget::mouseReleaseEvent(event);
@@ -527,10 +492,12 @@ void ViewerWidget::wheelEvent(QWheelEvent* event)
         const int dy = event->angleDelta().y();
         if (dy != 0)
         {
-            const QPoint p = mapToOcctPixels(event->position());
-            const int step = (dy > 0) ? -10 : 10;
-            m_occt->view->Zoom(p.x(), p.y(), p.x(), p.y() + step);
-            redrawView();
+            const QPoint c = mapToOcctPixels(event->position());
+            const qreal notches = static_cast<qreal>(dy) / 120.0;
+            const int delta = static_cast<int>(std::lround(notches * 42.0));
+            m_occt->view->StartZoomAtPoint(c.x(), c.y());
+            m_occt->view->ZoomAtPoint(c.x(), c.y(), c.x(), c.y() - delta);
+            flushView();
         }
         event->accept();
         return;
@@ -550,16 +517,4 @@ void ViewerWidget::mouseDoubleClickEvent(QMouseEvent* event)
     }
 #endif
     QWidget::mouseDoubleClickEvent(event);
-}
-
-void ViewerWidget::changeEvent(QEvent* event)
-{
-#if defined(_WIN32)
-    if (event->type() == QEvent::DevicePixelRatioChange)
-    {
-        syncOcctViewport();
-        redrawView();
-    }
-#endif
-    QWidget::changeEvent(event);
 }

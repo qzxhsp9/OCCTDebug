@@ -9,14 +9,11 @@
 
 #include <memory>
 
-class QFocusEvent;
 class QMouseEvent;
 class QPaintEvent;
 class QResizeEvent;
 class QShowEvent;
 class QWheelEvent;
-class QEvent;
-class QTimer;
 
 #if defined(_WIN32)
 struct ViewerOcctData;
@@ -40,9 +37,7 @@ public:
     bool showBoundingBox() const;
 
 public slots:
-    /// Called after QSplitter drags; layout may settle one tick later than resize.
     void deferViewportSync();
-    /// When true (default), show axis-aligned bounding box wire for the highlighted sub-shape (Windows).
     void setShowBoundingBox(bool on);
 
 protected:
@@ -52,30 +47,25 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void showEvent(QShowEvent* event) override;
-    void focusInEvent(QFocusEvent* event) override;
-    void focusOutEvent(QFocusEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
-    void changeEvent(QEvent* event) override;
 
 private:
     void ensureOcctInitialized();
-    void redrawView();
-
 #if defined(_WIN32)
+    void flushView();
+    void presentOnly();
+
     void syncOcctViewport();
-    qreal effectiveDevicePixelRatio() const;
-    void scheduleDeferredViewportSync();
     void updateBboxAis();
     QPoint mapToOcctPixels(const QPointF& pos) const;
 
-    QTimer* m_deferredViewportTimer = nullptr;
-
     std::unique_ptr<ViewerOcctData> m_occt;
     TopoDS_Shape m_lastHighlight;
+    bool m_inPaintFlush = false;
 #endif
     bool m_showBoundingBox = true;
 #ifndef _WIN32

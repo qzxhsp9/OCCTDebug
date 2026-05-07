@@ -1099,6 +1099,22 @@ LLM 不应直接做：
 - 诊断结果和三维视图有关联；
 - 能辅助判断几何/拓扑问题位置。
 
+### 后续迭代：拓扑细节视窗（Topological Detail Inspector）
+
+**实现状态（阶段 1，已落地）**：右侧 **`TopologyDetailDock`**（`QDockWidget`）随树选中更新——**Face**：`FaceUvCanvasWidget` 在 **(u,v)** 平面绘制各 Wire 的 pcurve 采样折线，外环/内环分色并带走向示意；**Edge**：文本摘要（3D 曲线类型、参数域、容差）+ **`EdgeSchematicWidget`** 用圆盘/点列示意顶点容差与边容差（MVP，非真 3D 球）；**Vertex**：HTML 列出根形体上所有 **邻接 Edge** 及容差。与主 3D 视图的深度联动、真 3D 容差球、SameParameter 图层等仍属 **阶段 2+**。
+
+**目标（完整版）**：在 Dock 或独立窗中展示与拓扑调试强相关的抽象几何，便于对照诊断证据定位 pcurve、容差与邻接问题。
+
+| 子形状 | 规划展示要点（完整版） |
+|--------|----------------|
+| **Face** | 在曲面 **参数域 (u,v)** 中绘制 Wire 的投影及 **pcurve** 布局，**标明走向**（外环/内环、环方向）；与主 3D 同步高亮、奇异点标注。 |
+| **Edge** | **真 3D** 曲线 + 端点；**球体**表示容差；SameParameter、3D 与 pcurve 偏差图层。 |
+| **Vertex** | **邻接 Edge/Face 扇区** 星形或局部 3D；交互布局细化。 |
+
+**工程要点**：共享 `ShapeDocument` / 当前 `TopoDS_Shape`；大模型需 **惰性构建 AIS** 或采样；2D 域已用 `QPainter`；后续可加第二 `V3d_View` 或专用 AIS 层。
+
+**阶段 2+ 验收**：与主视图双向联动；Edge/Vertex 具备可旋转的局部 3D 或参数截面；可辅助阅读 BRepCheck 证据。
+
 ---
 
 ## Milestone 4：问题会话系统

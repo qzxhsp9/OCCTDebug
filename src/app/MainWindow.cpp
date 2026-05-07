@@ -11,12 +11,14 @@
 #include "ui/DiagnosticPanel.h"
 #include "ui/PropertyPanel.h"
 #include "ui/ShapeTreeWidget.h"
+#include "ui/TopologyDetailPanel.h"
 #include "ui/ViewerWidget.h"
 
 #include <Standard_Version.hxx>
 
 #include <QAction>
 #include <QDateTime>
+#include <QDockWidget>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -32,6 +34,16 @@
 
 namespace
 {
+QString inputTypeFromFilePath(const QString& filePath)
+{
+    const QString ext = QFileInfo(filePath).suffix().toLower();
+    if (ext == QStringLiteral("stp") || ext == QStringLiteral("step"))
+    {
+        return QStringLiteral("step");
+    }
+    return QStringLiteral("brep");
+}
+
 void fillBuildMetadata(ProblemContext& ctx)
 {
     ctx.occtVersion = OCC_VERSION_STRING;
@@ -79,15 +91,20 @@ MainWindow::MainWindow(QWidget* parent)
     horiz->setStretchFactor(0, 1);
     horiz->setStretchFactor(1, 2);
 
-    // Native GL child + splitters: geometry can settle after the last resize tick; align OCCT then.
     connect(rightSplitter, &QSplitter::splitterMoved, m_viewer, &ViewerWidget::deferViewportSync);
     connect(horiz, &QSplitter::splitterMoved, m_viewer, &ViewerWidget::deferViewportSync);
 
     mainLayout->addWidget(horiz);
     setCentralWidget(central);
 
+    m_topologyDock = new QDockWidget(tr("Topology detail"), this);
+    m_topologyDock->setObjectName(QStringLiteral("TopologyDetailDock"));
+    m_topologyPanel = new TopologyDetailPanel(m_topologyDock);
+    m_topologyDock->setWidget(m_topologyPanel);
+    addDockWidget(Qt::RightDockWidgetArea, m_topologyDock);
+
     auto* fileMenu = menuBar()->addMenu(tr("&File"));
-    auto* openAct = fileMenu->addAction(tr("&Open BREP…"));
+    auto* openAct = fileMenu->addAction(tr("Open &model…"));
     openAct->setShortcut(tr("Ctrl+O"));
     connect(openAct, &QAction::triggered, this, &MainWindow::onOpenBrep);
 
@@ -111,6 +128,10 @@ MainWindow::MainWindow(QWidget* parent)
 
     auto* viewMenu = menuBar()->addMenu(tr("&View"));
     connect(viewMenu->addAction(tr("&Fit all")), &QAction::triggered, m_viewer, &ViewerWidget::fitAll);
+    auto* topoDockAct = viewMenu->addAction(tr("&Topology detail dock"));
+    topoDockAct->setCheckable(true);
+    topoDockAct->setChecked(true);
+    connect(topoDockAct, &QAction::toggled, m_topologyDock, &QWidget::setVisible);
     auto* bboxAct = viewMenu->addAction(tr("Show &bounding box"));
     bboxAct->setCheckable(true);
     bboxAct->setChecked(m_viewer->showBoundingBox());
@@ -119,7 +140,8 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_shapeTree, &ShapeTreeWidget::shapeSelected, this, &MainWindow::onShapeSelected);
     connect(m_diagnosticPanel, &DiagnosticPanel::findingActivated, this, &MainWindow::onFindingActivated);
 
-    statusBar()->showMessage(tr("OCCT %1 — open a BREP to begin.").arg(QString::fromLatin1(OCC_VERSION_STRING)));
+    statusBar()->showMessage(tr("OCCT %1 — open a BREP or STEP model to begin.")
+                                 .arg(QString::fromLatin1(OCC_VERSION_STRING)));
 
     updateWindowTitle();
 }
@@ -159,6 +181,10 @@ bool MainWindow::openBrepPath(const QString& path, QString* errorOut)
     m_viewer->setRootShape(res.shape);
     m_viewer->setHighlightShape(TopoDS_Shape());
     m_selectedShapeId = -1;
+    if (m_topologyPanel != nullptr)
+    {
+        m_topologyPanel->inspect(m_document, -1);
+    }
     return true;
 }
 
@@ -166,9 +192,10 @@ void MainWindow::onOpenBrep()
 {
     const QString path = QFileDialog::getOpenFileName(
         this,
-        tr("Open BREP"),
+        tr("Open model"),
         QString(),
-        tr("BREP (*.brep *.BREP);;All files (*)"));
+        tr("Geometry (*.brep *.BREP *.stp *.STP *.step *.STEP);;BREP (*.brep *.BREP);;STEP "
+           "(*.stp *.STP *.step *.STEP);;All files (*)"));
     if (path.isEmpty())
     {
         return;
@@ -184,7 +211,7 @@ void MainWindow::onOpenBrep()
 
     m_sessionFilePath.clear();
 
-    Logger::info(tr("Loaded BREP: %1 (%2 shapes)").arg(path).arg(m_document.Nodes().size()));
+    Logger::info(tr("Loaded model: %1 (%2 shapes)").arg(path).arg(m_document.Nodes().size()));
     statusBar()->showMessage(tr("Loaded %1").arg(path));
 }
 
@@ -192,7 +219,7 @@ void MainWindow::onSaveSession()
 {
     if (m_document.RootShape().IsNull())
     {
-        QMessageBox::information(this, tr("Session"), tr("Load a BREP before saving a session."));
+        QMessageBox::information(this, tr("Session"), tr("Load a model before saving a session."));
         return;
     }
 
@@ -216,8 +243,9 @@ void MainWindow::onSaveSession()
     for (const std::string& p : m_problem.inputFiles)
     {
         SessionInput in;
-        in.path = SessionSerializer::toStoredPath(QString::fromStdString(p), path).toStdString();
-        in.type = "brep";
+        const QString absPath = QString::fromStdString(p);
+        in.path = SessionSerializer::toStoredPath(absPath, path).toStdString();
+        in.type = inputTypeFromFilePath(absPath).toStdString();
         in.role = "primary";
         session.inputs.push_back(std::move(in));
     }
@@ -254,42 +282,48 @@ void MainWindow::onOpenSession()
         return;
     }
 
-    QString brepResolved;
+    QString modelPath;
     for (const SessionInput& in : session.inputs)
     {
         const QString rawPath = QString::fromStdString(in.path);
-        const QString type = QString::fromStdString(in.type);
-        if (type.compare(QStringLiteral("brep"), Qt::CaseInsensitive) == 0
-            || rawPath.endsWith(QStringLiteral(".brep"), Qt::CaseInsensitive)
-            || rawPath.endsWith(QStringLiteral(".BREP"), Qt::CaseInsensitive))
+        const QString resolved = SessionSerializer::resolveInputPath(rawPath, path);
+        if (QFileInfo::exists(resolved))
         {
-            brepResolved = SessionSerializer::resolveInputPath(rawPath, path);
+            modelPath = resolved;
             break;
         }
     }
-    if (brepResolved.isEmpty() && !session.problem.inputFiles.empty())
+    if (modelPath.isEmpty())
     {
-        brepResolved =
-            SessionSerializer::resolveInputPath(QString::fromStdString(session.problem.inputFiles.front()), path);
+        for (const std::string& fp : session.problem.inputFiles)
+        {
+            const QString resolved =
+                SessionSerializer::resolveInputPath(QString::fromStdString(fp), path);
+            if (QFileInfo::exists(resolved))
+            {
+                modelPath = resolved;
+                break;
+            }
+        }
     }
 
-    if (brepResolved.isEmpty() || !QFileInfo::exists(brepResolved))
+    if (modelPath.isEmpty() || !QFileInfo::exists(modelPath))
     {
         QMessageBox::warning(
             this,
             tr("Session"),
-            tr("Could not find the BREP file for this session. Check paths relative to the session file."));
+            tr("Could not find the model file for this session. Check paths relative to the session file."));
         return;
     }
 
-    if (!openBrepPath(brepResolved, &err))
+    if (!openBrepPath(modelPath, &err))
     {
         QMessageBox::warning(this, tr("Open failed"), err);
         return;
     }
 
     m_problem = session.problem;
-    m_problem.inputFiles = {brepResolved.toStdString()};
+    m_problem.inputFiles = {modelPath.toStdString()};
     m_findings = std::move(session.diagnostics);
     m_diagnosticPanel->setFindings(m_findings);
 
@@ -308,7 +342,7 @@ void MainWindow::onRunDiagnostics()
 {
     if (m_document.RootShape().IsNull())
     {
-        QMessageBox::information(this, tr("Diagnostics"), tr("Load a BREP first."));
+        QMessageBox::information(this, tr("Diagnostics"), tr("Load a model first."));
         return;
     }
     m_findings = m_engine.diagnose(m_problem, m_document);
@@ -348,7 +382,7 @@ void MainWindow::onExportMinimalRepro()
 {
     if (m_document.RootShape().IsNull() || m_problem.inputFiles.empty())
     {
-        QMessageBox::information(this, tr("Export"), tr("Load a BREP first."));
+        QMessageBox::information(this, tr("Export"), tr("Load a model first."));
         return;
     }
 
@@ -406,16 +440,22 @@ void MainWindow::onShapeSelected(int shapeId)
     if (shapeId < 0)
     {
         m_viewer->setHighlightShape(TopoDS_Shape());
-        return;
-    }
-    const ShapeNode* node = m_document.FindNode(shapeId);
-    if (node && !node->shape.IsNull())
-    {
-        m_viewer->setHighlightShape(node->shape);
     }
     else
     {
-        m_viewer->setHighlightShape(TopoDS_Shape());
+        const ShapeNode* node = m_document.FindNode(shapeId);
+        if (node && !node->shape.IsNull())
+        {
+            m_viewer->setHighlightShape(node->shape);
+        }
+        else
+        {
+            m_viewer->setHighlightShape(TopoDS_Shape());
+        }
+    }
+    if (m_topologyPanel != nullptr)
+    {
+        m_topologyPanel->inspect(m_document, shapeId);
     }
 }
 
@@ -431,5 +471,9 @@ void MainWindow::onFindingActivated(int shapeId)
         {
             m_viewer->setHighlightShape(node->shape);
         }
+    }
+    if (m_topologyPanel != nullptr)
+    {
+        m_topologyPanel->inspect(m_document, shapeId);
     }
 }
