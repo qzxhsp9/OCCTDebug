@@ -18,19 +18,28 @@
 
 #include <QAction>
 #include <QDateTime>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QDirIterator>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QProgressDialog>
+#include <QPushButton>
 #include <QSplitter>
 #include <QFile>
 #include <QIODevice>
 #include <QApplication>
 #include <QGuiApplication>
+#include <QLineEdit>
 #include <QStatusBar>
 #include <QShowEvent>
+#include <QTextStream>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QEvent>
@@ -39,6 +48,13 @@
 
 namespace
 {
+struct BatchAssemblyCheckSettings
+{
+    QString folderPath;
+    QString orderFilePath;
+    QString infoFilePath = QStringLiteral("d:/info_si_assembly.txt");
+};
+
 QString inputTypeFromFilePath(const QString& filePath)
 {
     const QString ext = QFileInfo(filePath).suffix().toLower();
@@ -47,6 +63,146 @@ QString inputTypeFromFilePath(const QString& filePath)
         return QStringLiteral("step");
     }
     return QStringLiteral("brep");
+}
+
+bool isStepFilePath(const QString& filePath)
+{
+    const QString ext = QFileInfo(filePath).suffix().toLower();
+    return ext == QStringLiteral("stp") || ext == QStringLiteral("step");
+}
+
+QStringList collectBatchStepFiles(const QString& folderPath, const QString& orderFilePath, QString* errorOut)
+{
+    QStringList files;
+    const QDir folder(folderPath);
+    if (!folder.exists())
+    {
+        if (errorOut != nullptr)
+        {
+            *errorOut = QObject::tr("Folder does not exist: %1").arg(folderPath);
+        }
+        return files;
+    }
+
+    if (orderFilePath.trimmed().isEmpty())
+    {
+        const QFileInfoList entries = folder.entryInfoList(
+            {QStringLiteral("*.stp"), QStringLiteral("*.step")},
+            QDir::Files,
+            QDir::Name | QDir::IgnoreCase);
+        for (const QFileInfo& entry : entries)
+        {
+            files.push_back(entry.absoluteFilePath());
+        }
+
+        const QFileInfoList subdirs =
+            folder.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::IgnoreCase);
+        for (const QFileInfo& subdir : subdirs)
+        {
+            QString subdirError;
+            files.append(collectBatchStepFiles(subdir.absoluteFilePath(), QString(), &subdirError));
+            if (!subdirError.isEmpty() && errorOut != nullptr)
+            {
+                *errorOut = subdirError;
+                return {};
+            }
+        }
+        return files;
+    }
+
+    QFile orderFile(orderFilePath);
+    if (!orderFile.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        if (errorOut != nullptr)
+        {
+            *errorOut = QObject::tr("Could not open order file: %1").arg(orderFile.errorString());
+        }
+        return {};
+    }
+
+    QTextStream in(&orderFile);
+    while (!in.atEnd())
+    {
+        const QString line = in.readLine().trimmed();
+        if (line.isEmpty())
+        {
+            continue;
+        }
+
+        const QFileInfo item(line);
+        if (item.isAbsolute())
+        {
+            files.push_back(item.absoluteFilePath());
+            continue;
+        }
+
+        const QString directPath = folder.absoluteFilePath(line);
+        if (QFileInfo::exists(directPath))
+        {
+            files.push_back(directPath);
+            continue;
+        }
+
+        const QFileInfoList matches = folder.entryInfoList(
+            {line},
+            QDir::Files,
+            QDir::Name | QDir::IgnoreCase);
+        if (!matches.isEmpty())
+        {
+            files.push_back(matches.first().absoluteFilePath());
+            continue;
+        }
+
+        QDirIterator it(folder.absolutePath(), {line}, QDir::Files, QDirIterator::Subdirectories);
+        files.push_back(it.hasNext() ? it.next() : directPath);
+    }
+    return files;
+}
+
+QString batchAssemblyStatusText(const StepAssemblyInspectResult& res)
+{
+    if (!res.ok)
+    {
+        return QStringLiteral("ERROR");
+    }
+    if (!res.isStep)
+    {
+        return QStringLiteral("NOT_STEP");
+    }
+    if (!res.stepStructureRead)
+    {
+        return QStringLiteral("UNKNOWN");
+    }
+    return res.hasAssembly ? QStringLiteral("ASSEMBLY") : QStringLiteral("PART");
+}
+
+QString paddedReportCell(QString text, int width)
+{
+    text.replace('\t', ' ');
+    text.replace('\r', ' ');
+    text.replace('\n', ' ');
+    if (text.size() >= width)
+    {
+        return text + QStringLiteral("  ");
+    }
+    return text.leftJustified(width, QLatin1Char(' '));
+}
+
+void writeBatchAssemblyReportRow(
+    QTextStream& out,
+    const QString& fileName,
+    const QString& status,
+    const QString& hasAssembly,
+    const QString& assemblyCount,
+    const QString& componentCount,
+    const QString& freeRootShapeCount,
+    const QString& message,
+    const QString& filePath)
+{
+    out << paddedReportCell(fileName, 36) << paddedReportCell(status, 14)
+        << paddedReportCell(hasAssembly, 14) << paddedReportCell(assemblyCount, 16)
+        << paddedReportCell(componentCount, 16) << paddedReportCell(freeRootShapeCount, 22)
+        << paddedReportCell(message, 44) << filePath << '\n';
 }
 
 void fillBuildMetadata(ProblemContext& ctx)
@@ -126,6 +282,10 @@ MainWindow::MainWindow(QWidget* parent)
     auto* runDiagAct = diagMenu->addAction(tr("&Run diagnostics"));
     runDiagAct->setShortcut(tr("F5"));
     connect(runDiagAct, &QAction::triggered, this, &MainWindow::onRunDiagnostics);
+    connect(diagMenu->addAction(tr("Batch check STEP &assemblies...")),
+            &QAction::triggered,
+            this,
+            &MainWindow::onBatchCheckStepAssemblies);
 
     auto* exportMenu = menuBar()->addMenu(tr("&Export"));
     connect(exportMenu->addAction(tr("Diagnostic report (&Markdown)…")), &QAction::triggered, this, &MainWindow::onExportMarkdown);
@@ -244,6 +404,25 @@ bool MainWindow::openBrepPath(const QString& path, QString* errorOut)
         return false;
     }
 
+    m_lastImportStructureMessage.clear();
+    if (res.isStep)
+    {
+        if (!res.stepStructureRead)
+        {
+            m_lastImportStructureMessage = tr("STEP assembly structure could not be inspected.");
+        }
+        else
+        {
+            m_lastImportStructureMessage =
+                res.hasAssembly
+                    ? tr("STEP contains assembly (%1 assembly node(s), %2 component instance(s), %3 free root shape(s)).")
+                          .arg(res.assemblyCount)
+                          .arg(res.componentCount)
+                          .arg(res.freeShapeCount)
+                    : tr("STEP does not contain assembly (%1 free root shape(s)).").arg(res.freeShapeCount);
+        }
+    }
+
     ShapeInspector::BuildFromShape(m_document, res.shape);
     m_shapeTree->rebuildFromDocument(m_document);
     m_propertyPanel->showShape(m_document, -1);
@@ -286,7 +465,14 @@ void MainWindow::onOpenBrep()
     m_sessionFilePath.clear();
 
     Logger::info(tr("Loaded model: %1 (%2 shapes)").arg(path).arg(m_document.Nodes().size()));
-    statusBar()->showMessage(tr("Loaded %1").arg(path));
+    if (!m_lastImportStructureMessage.isEmpty())
+    {
+        Logger::info(m_lastImportStructureMessage);
+    }
+    statusBar()->showMessage(
+        m_lastImportStructureMessage.isEmpty()
+            ? tr("Loaded %1").arg(path)
+            : tr("Loaded %1 — %2").arg(path, m_lastImportStructureMessage));
 }
 
 void MainWindow::onSaveSession()
@@ -409,7 +595,14 @@ void MainWindow::onOpenSession()
     }
 
     Logger::info(tr("Opened session: %1").arg(path));
-    statusBar()->showMessage(tr("Session %1").arg(path));
+    if (!m_lastImportStructureMessage.isEmpty())
+    {
+        Logger::info(m_lastImportStructureMessage);
+    }
+    statusBar()->showMessage(
+        m_lastImportStructureMessage.isEmpty()
+            ? tr("Session %1").arg(path)
+            : tr("Session %1 — %2").arg(path, m_lastImportStructureMessage));
 }
 
 void MainWindow::onRunDiagnostics()
@@ -423,6 +616,241 @@ void MainWindow::onRunDiagnostics()
     m_diagnosticPanel->setFindings(m_findings);
     Logger::info(tr("Diagnostics finished: %1 finding(s)").arg(m_findings.size()));
     statusBar()->showMessage(tr("%1 finding(s)").arg(m_findings.size()));
+}
+
+void MainWindow::onBatchCheckStepAssemblies()
+{
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Batch check STEP assemblies"));
+
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* form = new QFormLayout();
+    layout->addLayout(form);
+
+    auto* folderEdit = new QLineEdit(&dialog);
+    auto* folderBrowse = new QPushButton(tr("Browse..."), &dialog);
+    auto* folderRow = new QWidget(&dialog);
+    auto* folderLayout = new QHBoxLayout(folderRow);
+    folderLayout->setContentsMargins(0, 0, 0, 0);
+    folderLayout->addWidget(folderEdit);
+    folderLayout->addWidget(folderBrowse);
+    form->addRow(tr("Folder"), folderRow);
+
+    auto* orderEdit = new QLineEdit(&dialog);
+    auto* orderBrowse = new QPushButton(tr("Browse..."), &dialog);
+    auto* orderRow = new QWidget(&dialog);
+    auto* orderLayout = new QHBoxLayout(orderRow);
+    orderLayout->setContentsMargins(0, 0, 0, 0);
+    orderLayout->addWidget(orderEdit);
+    orderLayout->addWidget(orderBrowse);
+    form->addRow(tr("Order file"), orderRow);
+
+    auto* infoEdit = new QLineEdit(QStringLiteral("d:/info_si_assembly.txt"), &dialog);
+    auto* infoBrowse = new QPushButton(tr("Browse..."), &dialog);
+    auto* infoRow = new QWidget(&dialog);
+    auto* infoLayout = new QHBoxLayout(infoRow);
+    infoLayout->setContentsMargins(0, 0, 0, 0);
+    infoLayout->addWidget(infoEdit);
+    infoLayout->addWidget(infoBrowse);
+    form->addRow(tr("Info file"), infoRow);
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+
+    connect(folderBrowse, &QPushButton::clicked, &dialog, [&dialog, folderEdit]() {
+        const QString selected =
+            QFileDialog::getExistingDirectory(&dialog, QObject::tr("Select folder"), folderEdit->text());
+        if (!selected.isEmpty())
+        {
+            folderEdit->setText(selected);
+        }
+    });
+
+    connect(orderBrowse, &QPushButton::clicked, &dialog, [&dialog, orderEdit, folderEdit]() {
+        const QString selected = QFileDialog::getOpenFileName(
+            &dialog,
+            QObject::tr("Select order file"),
+            orderEdit->text().isEmpty() ? folderEdit->text() : orderEdit->text(),
+            QObject::tr("Text files (*.txt);;All files (*)"));
+        if (!selected.isEmpty())
+        {
+            orderEdit->setText(selected);
+        }
+    });
+
+    connect(infoBrowse, &QPushButton::clicked, &dialog, [&dialog, infoEdit]() {
+        const QString selected = QFileDialog::getSaveFileName(
+            &dialog,
+            QObject::tr("Select info file"),
+            infoEdit->text(),
+            QObject::tr("Text files (*.txt);;All files (*)"));
+        if (!selected.isEmpty())
+        {
+            infoEdit->setText(selected);
+        }
+    });
+
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&dialog, folderEdit, infoEdit]() {
+        if (folderEdit->text().trimmed().isEmpty())
+        {
+            QMessageBox::warning(&dialog, QObject::tr("Batch check"), QObject::tr("Select a folder first."));
+            return;
+        }
+        if (infoEdit->text().trimmed().isEmpty())
+        {
+            QMessageBox::warning(&dialog, QObject::tr("Batch check"), QObject::tr("Select an info file first."));
+            return;
+        }
+        dialog.accept();
+    });
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return;
+    }
+
+    const BatchAssemblyCheckSettings settings{
+        folderEdit->text().trimmed(),
+        orderEdit->text().trimmed(),
+        infoEdit->text().trimmed(),
+    };
+
+    QString err;
+    const QStringList files = collectBatchStepFiles(settings.folderPath, settings.orderFilePath, &err);
+    if (!err.isEmpty())
+    {
+        QMessageBox::warning(this, tr("Batch check"), err);
+        return;
+    }
+    if (files.isEmpty())
+    {
+        QMessageBox::information(this, tr("Batch check"), tr("No files to check."));
+        return;
+    }
+
+    QFile infoFile(settings.infoFilePath);
+    if (!infoFile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        QMessageBox::warning(
+            this,
+            tr("Batch check"),
+            tr("Could not open info file for writing: %1").arg(infoFile.errorString()));
+        return;
+    }
+
+    QTextStream out(&infoFile);
+    writeBatchAssemblyReportRow(
+        out,
+        QStringLiteral("file_name"),
+        QStringLiteral("status"),
+        QStringLiteral("has_assembly"),
+        QStringLiteral("assembly_count"),
+        QStringLiteral("component_count"),
+        QStringLiteral("free_root_shape_count"),
+        QStringLiteral("message"),
+        QStringLiteral("file_path"));
+
+    QProgressDialog progress(tr("Checking STEP assemblies..."), tr("Cancel"), 0, files.size(), this);
+    progress.setWindowModality(Qt::ApplicationModal);
+    progress.setMinimumDuration(0);
+
+    int checkedCount = 0;
+    int assemblyCount = 0;
+    int errorCount = 0;
+    for (const QString& filePath : files)
+    {
+        progress.setValue(checkedCount);
+        progress.setLabelText(tr("Checking %1").arg(QFileInfo(filePath).fileName()));
+        qApp->processEvents();
+        if (progress.wasCanceled())
+        {
+            break;
+        }
+
+        QFileInfo fileInfo(filePath);
+        QString message;
+        StepAssemblyInspectResult res;
+        if (!fileInfo.exists())
+        {
+            message = tr("File does not exist.");
+            ++errorCount;
+            writeBatchAssemblyReportRow(
+                out,
+                fileInfo.fileName(),
+                QStringLiteral("MISSING"),
+                QString(),
+                QString(),
+                QString(),
+                QString(),
+                message,
+                filePath);
+            ++checkedCount;
+            continue;
+        }
+        if (!isStepFilePath(filePath))
+        {
+            message = tr("Not a STEP/STP file.");
+            writeBatchAssemblyReportRow(
+                out,
+                fileInfo.fileName(),
+                QStringLiteral("NOT_STEP"),
+                QStringLiteral("false"),
+                QStringLiteral("0"),
+                QStringLiteral("0"),
+                QStringLiteral("0"),
+                message,
+                fileInfo.absoluteFilePath());
+            ++checkedCount;
+            continue;
+        }
+
+        res = BRepLoader::inspectStepAssembly(fileInfo.absoluteFilePath());
+        const QString status = batchAssemblyStatusText(res);
+        if (!res.ok)
+        {
+            message = res.errorMessage;
+            ++errorCount;
+        }
+        else if (!res.stepStructureRead)
+        {
+            message = tr("STEP assembly structure could not be inspected.");
+            ++errorCount;
+        }
+        else if (res.hasAssembly)
+        {
+            message = tr("Contains assembly.");
+            ++assemblyCount;
+        }
+        else
+        {
+            message = tr("Does not contain assembly.");
+        }
+
+        writeBatchAssemblyReportRow(
+            out,
+            fileInfo.fileName(),
+            status,
+            res.hasAssembly ? QStringLiteral("true") : QStringLiteral("false"),
+            QString::number(res.assemblyCount),
+            QString::number(res.componentCount),
+            QString::number(res.freeShapeCount),
+            message,
+            fileInfo.absoluteFilePath());
+        ++checkedCount;
+    }
+
+    progress.setValue(files.size());
+    infoFile.close();
+
+    const QString summary = tr("Checked %1 file(s), %2 assembly file(s), %3 error(s). Info written to %4")
+                                .arg(checkedCount)
+                                .arg(assemblyCount)
+                                .arg(errorCount)
+                                .arg(settings.infoFilePath);
+    Logger::info(summary);
+    statusBar()->showMessage(summary);
+    QMessageBox::information(this, tr("Batch check"), summary);
 }
 
 void MainWindow::onExportMarkdown()

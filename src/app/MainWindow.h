@@ -39,6 +39,7 @@ private slots:
     void onExportMinimalRepro();
     void onSaveSession();
     void onOpenSession();
+    void onBatchCheckStepAssemblies();
     void onShapeSelected(int shapeId);
     void onFindingActivated(int shapeId);
 
@@ -60,6 +61,7 @@ private:
     TopologyDetailPanel* m_topologyPanel = nullptr;
 
     QString m_sessionFilePath;
+    QString m_lastImportStructureMessage;
     int m_selectedShapeId = -1;
 
     /// For focusObjectChanged (Qt6): previous focused widget to detect leaving/entering the viewer.
