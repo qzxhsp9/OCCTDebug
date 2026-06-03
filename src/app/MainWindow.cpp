@@ -1,5 +1,6 @@
 #include "app/MainWindow.h"
 
+#include "analysis/ProblemDocumentImporter.h"
 #include "core/DebugSession.h"
 #include "core/Logger.h"
 #include "io/BRepLoader.h"
@@ -16,6 +17,7 @@
 
 #include <Standard_Version.hxx>
 
+#include <BRep_Builder.hxx>
 #include <QAction>
 #include <QDateTime>
 #include <QDialog>
@@ -35,16 +37,27 @@
 #include <QFile>
 #include <QIODevice>
 #include <QApplication>
+#include <QAbstractItemView>
+#include <QComboBox>
 #include <QGuiApplication>
 #include <QLineEdit>
 #include <QStatusBar>
 #include <QShowEvent>
+#include <QTextEdit>
 #include <QTextStream>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QEvent>
+#include <QHeaderView>
+#include <QLabel>
+#include <QTableWidget>
+#include <QTableWidgetItem>
 
+#include <TopoDS_Compound.hxx>
 #include <TopoDS_Shape.hxx>
+
+#include <map>
+#include <utility>
 
 namespace
 {
@@ -69,6 +82,82 @@ bool isStepFilePath(const QString& filePath)
 {
     const QString ext = QFileInfo(filePath).suffix().toLower();
     return ext == QStringLiteral("stp") || ext == QStringLiteral("step");
+}
+
+bool isSupportedModelFilePath(const QString& filePath)
+{
+    const QString ext = QFileInfo(filePath).suffix().toLower();
+    return ext == QStringLiteral("brep") || ext == QStringLiteral("stp") || ext == QStringLiteral("step");
+}
+
+QString stepStructureMessage(const BRepLoadResult& res)
+{
+    if (!res.isStep)
+    {
+        return {};
+    }
+    if (!res.stepStructureRead)
+    {
+        return QObject::tr("STEP assembly structure could not be inspected.");
+    }
+    if (res.hasAssembly)
+    {
+        return QObject::tr("STEP contains assembly (%1 assembly node(s), %2 component instance(s), %3 free root shape(s)).")
+            .arg(res.assemblyCount)
+            .arg(res.componentCount)
+            .arg(res.freeShapeCount);
+    }
+    return QObject::tr("STEP does not contain assembly (%1 free root shape(s)).").arg(res.freeShapeCount);
+}
+
+QString resolvePathRelativeToDocument(const QString& rawPath, const QString& documentPath)
+{
+    const QFileInfo rawInfo(rawPath);
+    if (rawInfo.isAbsolute())
+    {
+        return rawInfo.absoluteFilePath();
+    }
+
+    const QFileInfo documentInfo(documentPath);
+    return QFileInfo(documentInfo.absoluteDir().absoluteFilePath(rawPath)).absoluteFilePath();
+}
+
+QString problemCategoryLabel(ProblemCategory category)
+{
+    switch (category)
+    {
+    case ProblemCategory::Boolean:
+        return QObject::tr("Boolean");
+    case ProblemCategory::Projection:
+        return QObject::tr("Projection");
+    case ProblemCategory::Classification:
+        return QObject::tr("Classification");
+    case ProblemCategory::Topology:
+        return QObject::tr("Topology");
+    case ProblemCategory::Tolerance:
+        return QObject::tr("Tolerance");
+    case ProblemCategory::Meshing:
+        return QObject::tr("Meshing");
+    case ProblemCategory::HLR:
+        return QObject::tr("HLR");
+    case ProblemCategory::Performance:
+        return QObject::tr("Performance");
+    case ProblemCategory::Crash:
+        return QObject::tr("Crash");
+    case ProblemCategory::Unknown:
+    default:
+        return QObject::tr("Unknown");
+    }
+}
+
+QString conciseProblemText(const std::string& text, int maxChars)
+{
+    QString s = QString::fromStdString(text).simplified();
+    if (s.size() <= maxChars)
+    {
+        return s;
+    }
+    return s.left(maxChars - 3) + QStringLiteral("...");
 }
 
 QStringList collectBatchStepFiles(const QString& folderPath, const QString& orderFilePath, QString* errorOut)
@@ -219,6 +308,122 @@ void fillBuildMetadata(ProblemContext& ctx)
     ctx.buildType = "Release";
 #endif
 }
+
+void fillMissingBuildMetadata(ProblemContext& ctx)
+{
+    ProblemContext defaults;
+    fillBuildMetadata(defaults);
+    if (ctx.occtVersion.empty())
+    {
+        ctx.occtVersion = defaults.occtVersion;
+    }
+    if (ctx.compiler.empty())
+    {
+        ctx.compiler = defaults.compiler;
+    }
+    if (ctx.buildType.empty())
+    {
+        ctx.buildType = defaults.buildType;
+    }
+}
+
+void populateProblemCategoryCombo(QComboBox* combo, ProblemCategory selected)
+{
+    struct Item
+    {
+        const char* label;
+        ProblemCategory category;
+    };
+    const Item items[] = {
+        {"Unknown", ProblemCategory::Unknown},
+        {"Boolean", ProblemCategory::Boolean},
+        {"Projection", ProblemCategory::Projection},
+        {"Classification", ProblemCategory::Classification},
+        {"Topology", ProblemCategory::Topology},
+        {"Tolerance", ProblemCategory::Tolerance},
+        {"Meshing", ProblemCategory::Meshing},
+        {"HLR", ProblemCategory::HLR},
+        {"Performance", ProblemCategory::Performance},
+        {"Crash", ProblemCategory::Crash},
+    };
+
+    int selectedIndex = 0;
+    for (const Item& item : items)
+    {
+        combo->addItem(QString::fromLatin1(item.label), static_cast<int>(item.category));
+        if (item.category == selected)
+        {
+            selectedIndex = combo->count() - 1;
+        }
+    }
+    combo->setCurrentIndex(selectedIndex);
+}
+
+ProblemCategory selectedProblemCategory(const QComboBox* combo)
+{
+    return static_cast<ProblemCategory>(combo->currentData().toInt());
+}
+
+QString inputFilesText(const std::vector<std::string>& inputFiles)
+{
+    QStringList lines;
+    for (const std::string& input : inputFiles)
+    {
+        if (!input.empty())
+        {
+            lines.push_back(QString::fromStdString(input));
+        }
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
+std::vector<std::string> inputFilesFromText(const QString& text)
+{
+    std::vector<std::string> result;
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    result.reserve(lines.size());
+    for (const QString& line : lines)
+    {
+        const QString trimmed = line.trimmed();
+        if (!trimmed.isEmpty())
+        {
+            result.push_back(trimmed.toStdString());
+        }
+    }
+    return result;
+}
+
+bool isReservedProblemParameter(const QString& key)
+{
+    const QString normalized = key.trimmed().toLower();
+    return normalized == QStringLiteral("reproductionsteps") || normalized == QStringLiteral("notes")
+        || normalized == QStringLiteral("environment");
+}
+
+void appendParameterRow(QTableWidget* table, const QString& key = QString(), const QString& value = QString())
+{
+    const int row = table->rowCount();
+    table->insertRow(row);
+    table->setItem(row, 0, new QTableWidgetItem(key));
+    table->setItem(row, 1, new QTableWidgetItem(value));
+}
+
+std::map<std::string, std::string> parametersFromTable(const QTableWidget* table)
+{
+    std::map<std::string, std::string> result;
+    for (int row = 0; row < table->rowCount(); ++row)
+    {
+        const QTableWidgetItem* keyItem = table->item(row, 0);
+        const QTableWidgetItem* valueItem = table->item(row, 1);
+        const QString key = keyItem == nullptr ? QString() : keyItem->text().trimmed();
+        const QString value = valueItem == nullptr ? QString() : valueItem->text().trimmed();
+        if (!key.isEmpty() && !isReservedProblemParameter(key))
+        {
+            result[key.toStdString()] = value.toStdString();
+        }
+    }
+    return result;
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent)
@@ -228,7 +433,17 @@ MainWindow::MainWindow(QWidget* parent)
     applyProblemDefaults();
 
     auto* central = new QWidget(this);
-    auto* mainLayout = new QHBoxLayout(central);
+    auto* mainLayout = new QVBoxLayout(central);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
+
+    m_problemBanner = new QLabel(central);
+    m_problemBanner->setObjectName(QStringLiteral("ProblemBanner"));
+    m_problemBanner->setWordWrap(true);
+    m_problemBanner->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_problemBanner->setStyleSheet(
+        QStringLiteral("QLabel#ProblemBanner { border: 1px solid #b8c2cc; border-radius: 4px; "
+                       "padding: 6px 8px; background: #f5f7fa; color: #17202a; }"));
+    mainLayout->addWidget(m_problemBanner);
 
     auto* leftSplitter = new QSplitter(Qt::Vertical, central);
     m_shapeTree = new ShapeTreeWidget(leftSplitter);
@@ -256,7 +471,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(rightSplitter, &QSplitter::splitterMoved, m_viewer, &ViewerWidget::deferViewportSync);
     connect(horiz, &QSplitter::splitterMoved, m_viewer, &ViewerWidget::deferViewportSync);
 
-    mainLayout->addWidget(horiz);
+    mainLayout->addWidget(horiz, 1);
     setCentralWidget(central);
 
     m_diagnosticDock = new QDockWidget(tr("Diagnostic log"), this);
@@ -269,6 +484,14 @@ MainWindow::MainWindow(QWidget* parent)
     auto* openAct = fileMenu->addAction(tr("Open &model…"));
     openAct->setShortcut(tr("Ctrl+O"));
     connect(openAct, &QAction::triggered, this, &MainWindow::onOpenBrep);
+
+    auto* createProblemAct = fileMenu->addAction(tr("Create problem document..."));
+    createProblemAct->setShortcut(tr("Ctrl+Shift+N"));
+    connect(createProblemAct, &QAction::triggered, this, &MainWindow::onCreateProblemDocument);
+
+    auto* importProblemAct = fileMenu->addAction(tr("Import problem document..."));
+    importProblemAct->setShortcut(tr("Ctrl+I"));
+    connect(importProblemAct, &QAction::triggered, this, &MainWindow::onImportProblemDocument);
 
     auto* openSessionAct = fileMenu->addAction(tr("Open &session…"));
     openSessionAct->setShortcut(tr("Ctrl+Shift+O"));
@@ -351,7 +574,7 @@ MainWindow::MainWindow(QWidget* parent)
     statusBar()->showMessage(tr("OCCT %1 — open a BREP or STEP model to begin.")
                                  .arg(QString::fromLatin1(OCC_VERSION_STRING)));
 
-    updateWindowTitle();
+    updateProblemBanner();
 }
 
 void MainWindow::showEvent(QShowEvent* event)
@@ -384,53 +607,166 @@ void MainWindow::applyProblemDefaults()
     m_problem.title.clear();
     m_problem.category = ProblemCategory::Unknown;
     m_problem.description.clear();
+    m_problem.expectedBehavior.clear();
+    m_problem.actualBehavior.clear();
+    m_problem.inputFiles.clear();
+    m_problem.parameters.clear();
     fillBuildMetadata(m_problem);
 }
 
 void MainWindow::updateWindowTitle()
 {
-    setWindowTitle(tr("OCCTDebug"));
+    const QString title = QString::fromStdString(m_problem.title).trimmed();
+    if (title.isEmpty())
+    {
+        setWindowTitle(tr("OCCTDebug - Problem analysis"));
+        return;
+    }
+    setWindowTitle(tr("OCCTDebug - %1").arg(title));
+}
+
+void MainWindow::updateProblemBanner()
+{
+    updateWindowTitle();
+    if (m_problemBanner == nullptr)
+    {
+        return;
+    }
+
+    const QString title = QString::fromStdString(m_problem.title).trimmed();
+    QString text = title.isEmpty()
+        ? tr("Current problem: not defined")
+        : tr("Current problem: %1").arg(title);
+    text += tr(" | Category: %1").arg(problemCategoryLabel(m_problem.category));
+    text += tr(" | Input files: %1").arg(m_problem.inputFiles.size());
+
+    const QString summary = conciseProblemText(m_problem.description, 180);
+    if (!summary.isEmpty())
+    {
+        text += tr("\nSymptom: %1").arg(summary);
+    }
+
+    m_problemBanner->setText(text);
 }
 
 bool MainWindow::openBrepPath(const QString& path, QString* errorOut)
 {
-    const BRepLoadResult res = BRepLoader::loadFile(path);
-    if (!res.ok)
+    return openModelPaths(QStringList{path}, errorOut);
+}
+
+bool MainWindow::openModelPaths(const QStringList& paths, QString* errorOut)
+{
+    QStringList normalizedPaths;
+    for (const QString& path : paths)
+    {
+        const QString trimmed = path.trimmed();
+        if (trimmed.isEmpty())
+        {
+            continue;
+        }
+        normalizedPaths.push_back(QFileInfo(trimmed).absoluteFilePath());
+    }
+
+    if (normalizedPaths.isEmpty())
     {
         if (errorOut != nullptr)
         {
-            *errorOut = res.errorMessage;
+            *errorOut = tr("No model file was provided.");
         }
         return false;
     }
 
+    std::vector<TopoDS_Shape> shapes;
+    QStringList loadedPaths;
+    QStringList warnings;
+    QStringList structureMessages;
+    shapes.reserve(static_cast<size_t>(normalizedPaths.size()));
+
     m_lastImportStructureMessage.clear();
-    if (res.isStep)
+    for (const QString& path : normalizedPaths)
     {
-        if (!res.stepStructureRead)
+        if (!QFileInfo::exists(path))
         {
-            m_lastImportStructureMessage = tr("STEP assembly structure could not be inspected.");
+            warnings.push_back(tr("Model file does not exist: %1").arg(path));
+            continue;
         }
-        else
+        if (!isSupportedModelFilePath(path))
         {
-            m_lastImportStructureMessage =
-                res.hasAssembly
-                    ? tr("STEP contains assembly (%1 assembly node(s), %2 component instance(s), %3 free root shape(s)).")
-                          .arg(res.assemblyCount)
-                          .arg(res.componentCount)
-                          .arg(res.freeShapeCount)
-                    : tr("STEP does not contain assembly (%1 free root shape(s)).").arg(res.freeShapeCount);
+            warnings.push_back(tr("Unsupported model file type: %1").arg(path));
+            continue;
+        }
+
+        const BRepLoadResult res = BRepLoader::loadFile(path);
+        if (!res.ok)
+        {
+            warnings.push_back(tr("Could not load %1: %2").arg(path, res.errorMessage));
+            continue;
+        }
+
+        shapes.push_back(res.shape);
+        loadedPaths.push_back(path);
+        const QString stepMessage = stepStructureMessage(res);
+        if (!stepMessage.isEmpty())
+        {
+            structureMessages.push_back(stepMessage);
+            Logger::info(tr("%1: %2").arg(QFileInfo(path).fileName(), stepMessage));
         }
     }
 
-    ShapeInspector::BuildFromShape(m_document, res.shape);
+    for (const QString& warning : warnings)
+    {
+        Logger::warning(warning);
+    }
+
+    if (shapes.empty())
+    {
+        if (errorOut != nullptr)
+        {
+            *errorOut = warnings.isEmpty() ? tr("No model file could be loaded.") : warnings.join(QLatin1Char('\n'));
+        }
+        return false;
+    }
+
+    TopoDS_Shape rootShape;
+    if (shapes.size() == 1)
+    {
+        rootShape = shapes.front();
+    }
+    else
+    {
+        BRep_Builder builder;
+        TopoDS_Compound compound;
+        builder.MakeCompound(compound);
+        for (const TopoDS_Shape& shape : shapes)
+        {
+            builder.Add(compound, shape);
+        }
+        rootShape = compound;
+    }
+
+    ShapeInspector::BuildFromShape(m_document, rootShape);
     m_shapeTree->rebuildFromDocument(m_document);
     m_propertyPanel->showShape(m_document, -1);
     m_diagnosticPanel->setFindings({});
     m_findings.clear();
 
-    m_problem.inputFiles = {path.toStdString()};
-    m_viewer->setRootShape(res.shape);
+    m_problem.inputFiles.clear();
+    for (const QString& loadedPath : loadedPaths)
+    {
+        m_problem.inputFiles.push_back(loadedPath.toStdString());
+    }
+
+    if (loadedPaths.size() > 1)
+    {
+        m_lastImportStructureMessage = tr("Loaded %1 input model(s) into one compound for this problem.")
+                                           .arg(loadedPaths.size());
+    }
+    else if (!structureMessages.isEmpty())
+    {
+        m_lastImportStructureMessage = structureMessages.first();
+    }
+
+    m_viewer->setRootShape(rootShape);
     m_viewer->setHighlightShape(TopoDS_Shape());
     m_selectedShapeId = -1;
     if (m_topologyPanel != nullptr)
@@ -438,6 +774,7 @@ bool MainWindow::openBrepPath(const QString& path, QString* errorOut)
         m_topologyPanel->inspect(m_document, -1);
     }
     m_viewer->refreshPresentation();
+    updateProblemBanner();
     return true;
 }
 
@@ -473,6 +810,265 @@ void MainWindow::onOpenBrep()
         m_lastImportStructureMessage.isEmpty()
             ? tr("Loaded %1").arg(path)
             : tr("Loaded %1 — %2").arg(path, m_lastImportStructureMessage));
+}
+
+void MainWindow::onCreateProblemDocument()
+{
+    ProblemContext initial = m_problem;
+    fillMissingBuildMetadata(initial);
+
+    const auto parameterText = [&initial](const std::string& key) -> QString {
+        const auto it = initial.parameters.find(key);
+        return it == initial.parameters.end() ? QString() : QString::fromStdString(it->second);
+    };
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Create problem document"));
+    dialog.resize(760, 720);
+
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* form = new QFormLayout();
+    layout->addLayout(form);
+
+    auto* titleEdit = new QLineEdit(QString::fromStdString(initial.title), &dialog);
+    form->addRow(tr("Title"), titleEdit);
+
+    auto* categoryCombo = new QComboBox(&dialog);
+    populateProblemCategoryCombo(categoryCombo, initial.category);
+    form->addRow(tr("Category"), categoryCombo);
+
+    auto* occtVersionEdit = new QLineEdit(QString::fromStdString(initial.occtVersion), &dialog);
+    form->addRow(tr("OCCT version"), occtVersionEdit);
+
+    auto* compilerEdit = new QLineEdit(QString::fromStdString(initial.compiler), &dialog);
+    form->addRow(tr("Compiler"), compilerEdit);
+
+    auto* buildTypeEdit = new QLineEdit(QString::fromStdString(initial.buildType), &dialog);
+    form->addRow(tr("Build type"), buildTypeEdit);
+
+    auto* inputFilesEdit = new QTextEdit(inputFilesText(initial.inputFiles), &dialog);
+    inputFilesEdit->setAcceptRichText(false);
+    inputFilesEdit->setMinimumHeight(64);
+    form->addRow(tr("Input files"), inputFilesEdit);
+
+    auto* summaryEdit = new QTextEdit(QString::fromStdString(initial.description), &dialog);
+    summaryEdit->setAcceptRichText(false);
+    summaryEdit->setMinimumHeight(84);
+    form->addRow(tr("Summary"), summaryEdit);
+
+    auto* reproEdit = new QTextEdit(parameterText("reproductionSteps"), &dialog);
+    reproEdit->setAcceptRichText(false);
+    reproEdit->setMinimumHeight(96);
+    form->addRow(tr("Reproduction steps"), reproEdit);
+
+    auto* expectedEdit = new QTextEdit(QString::fromStdString(initial.expectedBehavior), &dialog);
+    expectedEdit->setAcceptRichText(false);
+    expectedEdit->setMinimumHeight(72);
+    form->addRow(tr("Expected behavior"), expectedEdit);
+
+    auto* actualEdit = new QTextEdit(QString::fromStdString(initial.actualBehavior), &dialog);
+    actualEdit->setAcceptRichText(false);
+    actualEdit->setMinimumHeight(72);
+    form->addRow(tr("Actual behavior"), actualEdit);
+
+    auto* notesEdit = new QTextEdit(parameterText("notes"), &dialog);
+    notesEdit->setAcceptRichText(false);
+    notesEdit->setMinimumHeight(84);
+    form->addRow(tr("Notes / suspected area"), notesEdit);
+
+    auto* parameterPanel = new QWidget(&dialog);
+    auto* parameterLayout = new QVBoxLayout(parameterPanel);
+    parameterLayout->setContentsMargins(0, 0, 0, 0);
+    auto* parameterTable = new QTableWidget(parameterPanel);
+    parameterTable->setColumnCount(2);
+    parameterTable->setHorizontalHeaderLabels({tr("Name"), tr("Value")});
+    parameterTable->horizontalHeader()->setStretchLastSection(true);
+    parameterTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    parameterTable->setMinimumHeight(110);
+    for (const auto& item : initial.parameters)
+    {
+        const QString key = QString::fromStdString(item.first);
+        if (!isReservedProblemParameter(key))
+        {
+            appendParameterRow(parameterTable, key, QString::fromStdString(item.second));
+        }
+    }
+    auto* parameterButtons = new QHBoxLayout();
+    auto* addParameterButton = new QPushButton(tr("Add property"), parameterPanel);
+    auto* removeParameterButton = new QPushButton(tr("Remove selected"), parameterPanel);
+    parameterButtons->addWidget(addParameterButton);
+    parameterButtons->addWidget(removeParameterButton);
+    parameterButtons->addStretch(1);
+    parameterLayout->addWidget(parameterTable);
+    parameterLayout->addLayout(parameterButtons);
+    form->addRow(tr("Custom properties"), parameterPanel);
+    connect(addParameterButton, &QPushButton::clicked, parameterTable, [parameterTable]() {
+        appendParameterRow(parameterTable);
+        parameterTable->setCurrentCell(parameterTable->rowCount() - 1, 0);
+        parameterTable->editItem(parameterTable->item(parameterTable->rowCount() - 1, 0));
+    });
+    connect(removeParameterButton, &QPushButton::clicked, parameterTable, [parameterTable]() {
+        const QModelIndexList selectedRows = parameterTable->selectionModel()->selectedRows();
+        for (auto it = selectedRows.rbegin(); it != selectedRows.rend(); ++it)
+        {
+            parameterTable->removeRow(it->row());
+        }
+    });
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return;
+    }
+
+    ProblemDocument document;
+    document.context.title = titleEdit->text().trimmed().toStdString();
+    if (document.context.title.empty())
+    {
+        document.context.title = "Untitled OCCT problem";
+    }
+    document.context.category = selectedProblemCategory(categoryCombo);
+    document.context.occtVersion = occtVersionEdit->text().trimmed().toStdString();
+    document.context.compiler = compilerEdit->text().trimmed().toStdString();
+    document.context.buildType = buildTypeEdit->text().trimmed().toStdString();
+    document.context.inputFiles = inputFilesFromText(inputFilesEdit->toPlainText());
+    document.context.description = summaryEdit->toPlainText().trimmed().toStdString();
+    document.context.expectedBehavior = expectedEdit->toPlainText().trimmed().toStdString();
+    document.context.actualBehavior = actualEdit->toPlainText().trimmed().toStdString();
+    document.context.parameters = parametersFromTable(parameterTable);
+    document.reproductionSteps = reproEdit->toPlainText().trimmed().toStdString();
+    document.notes = notesEdit->toPlainText().trimmed().toStdString();
+    if (!document.reproductionSteps.empty())
+    {
+        document.context.parameters["reproductionSteps"] = document.reproductionSteps;
+    }
+    if (!document.notes.empty())
+    {
+        document.context.parameters["notes"] = document.notes;
+    }
+
+    QString defaultPath = QStringLiteral("problem.md");
+    if (!document.context.inputFiles.empty())
+    {
+        defaultPath = QFileInfo(QString::fromStdString(document.context.inputFiles.front()))
+                          .absoluteDir()
+                          .absoluteFilePath(QStringLiteral("problem.md"));
+    }
+
+    const QString path = QFileDialog::getSaveFileName(
+        this,
+        tr("Save problem document"),
+        defaultPath,
+        tr("Markdown (*.md);;All files (*)"));
+    if (path.isEmpty())
+    {
+        return;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    {
+        QMessageBox::warning(this, tr("Problem document"), file.errorString());
+        return;
+    }
+
+    const QByteArray markdownBytes = QString::fromStdString(ProblemDocumentImporter::toMarkdown(document)).toUtf8();
+    if (file.write(markdownBytes) != markdownBytes.size())
+    {
+        QMessageBox::warning(this, tr("Problem document"), file.errorString());
+        return;
+    }
+
+    m_problem = document.context;
+    updateProblemBanner();
+    Logger::info(tr("Saved problem document: %1").arg(path));
+    statusBar()->showMessage(tr("Saved problem document %1").arg(path));
+}
+
+void MainWindow::onImportProblemDocument()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Import problem document"),
+        QString(),
+        tr("Problem documents (*.md *.markdown *.txt);;All files (*)"));
+    if (path.isEmpty())
+    {
+        return;
+    }
+
+    ProblemDocument document;
+    std::string error;
+    if (!ProblemDocumentImporter::loadFile(path.toStdString(), &document, &error))
+    {
+        QMessageBox::warning(this, tr("Problem document"), QString::fromStdString(error));
+        return;
+    }
+
+    const std::vector<std::string> previousInputFiles = m_problem.inputFiles;
+    ProblemContext importedProblem = document.context;
+    std::vector<std::string> resolvedInputs;
+    resolvedInputs.reserve(importedProblem.inputFiles.size());
+    for (const std::string& input : importedProblem.inputFiles)
+    {
+        const QString rawPath = QString::fromStdString(input).trimmed();
+        if (rawPath.isEmpty())
+        {
+            continue;
+        }
+        resolvedInputs.push_back(resolvePathRelativeToDocument(rawPath, path).toStdString());
+    }
+    importedProblem.inputFiles = resolvedInputs.empty() ? previousInputFiles : resolvedInputs;
+    fillMissingBuildMetadata(importedProblem);
+
+    m_problem = std::move(importedProblem);
+    m_findings.clear();
+    m_diagnosticPanel->setFindings({});
+    m_sessionFilePath.clear();
+
+    for (const std::string& warning : document.warnings)
+    {
+        Logger::warning(QString::fromStdString(warning));
+    }
+
+    const std::vector<std::string> importedInputFiles = m_problem.inputFiles;
+    QStringList loadCandidates;
+    for (const std::string& input : importedInputFiles)
+    {
+        const QString candidate = QString::fromStdString(input);
+        if (candidate.trimmed().isEmpty())
+        {
+            continue;
+        }
+        loadCandidates.push_back(candidate);
+    }
+
+    QString loadError;
+    if (!loadCandidates.isEmpty() && openModelPaths(loadCandidates, &loadError))
+    {
+        const int loadedCount = static_cast<int>(m_problem.inputFiles.size());
+        m_problem.inputFiles = importedInputFiles;
+        updateProblemBanner();
+        Logger::info(tr("Imported problem document: %1").arg(path));
+        Logger::info(tr("Loaded %1 model input(s) from problem document.").arg(loadedCount));
+        statusBar()->showMessage(tr("Imported %1 and loaded %2 model input(s)").arg(path).arg(loadedCount));
+        return;
+    }
+
+    updateProblemBanner();
+    Logger::info(tr("Imported problem document: %1").arg(path));
+    if (!loadError.isEmpty())
+    {
+        statusBar()->showMessage(tr("Imported %1; model load failed: %2").arg(path, loadError));
+    }
+    else
+    {
+        statusBar()->showMessage(tr("Imported %1").arg(path));
+    }
 }
 
 void MainWindow::onSaveSession()
@@ -542,32 +1138,28 @@ void MainWindow::onOpenSession()
         return;
     }
 
-    QString modelPath;
+    QStringList modelPaths;
+    const auto appendResolvedModelPath = [&modelPaths, &path](const QString& rawPath) {
+        const QString resolved = SessionSerializer::resolveInputPath(rawPath, path);
+        if (!modelPaths.contains(resolved))
+        {
+            modelPaths.push_back(resolved);
+        }
+    };
+
     for (const SessionInput& in : session.inputs)
     {
-        const QString rawPath = QString::fromStdString(in.path);
-        const QString resolved = SessionSerializer::resolveInputPath(rawPath, path);
-        if (QFileInfo::exists(resolved))
-        {
-            modelPath = resolved;
-            break;
-        }
+        appendResolvedModelPath(QString::fromStdString(in.path));
     }
-    if (modelPath.isEmpty())
+    if (modelPaths.isEmpty())
     {
         for (const std::string& fp : session.problem.inputFiles)
         {
-            const QString resolved =
-                SessionSerializer::resolveInputPath(QString::fromStdString(fp), path);
-            if (QFileInfo::exists(resolved))
-            {
-                modelPath = resolved;
-                break;
-            }
+            appendResolvedModelPath(QString::fromStdString(fp));
         }
     }
 
-    if (modelPath.isEmpty() || !QFileInfo::exists(modelPath))
+    if (modelPaths.isEmpty())
     {
         QMessageBox::warning(
             this,
@@ -576,16 +1168,18 @@ void MainWindow::onOpenSession()
         return;
     }
 
-    if (!openBrepPath(modelPath, &err))
+    if (!openModelPaths(modelPaths, &err))
     {
         QMessageBox::warning(this, tr("Open failed"), err);
         return;
     }
+    const std::vector<std::string> loadedInputFiles = m_problem.inputFiles;
 
     m_problem = session.problem;
-    m_problem.inputFiles = {modelPath.toStdString()};
+    m_problem.inputFiles = loadedInputFiles;
     m_findings = std::move(session.diagnostics);
     m_diagnosticPanel->setFindings(m_findings);
+    updateProblemBanner();
 
     m_sessionFilePath = path;
 

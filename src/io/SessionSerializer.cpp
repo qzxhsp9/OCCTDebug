@@ -128,6 +128,8 @@ QJsonObject problemToJson(const ProblemContext& p)
     o[QStringLiteral("title")] = QString::fromStdString(p.title);
     o[QStringLiteral("category")] = categoryToString(p.category);
     o[QStringLiteral("description")] = QString::fromStdString(p.description);
+    o[QStringLiteral("expectedBehavior")] = QString::fromStdString(p.expectedBehavior);
+    o[QStringLiteral("actualBehavior")] = QString::fromStdString(p.actualBehavior);
     o[QStringLiteral("occtVersion")] = QString::fromStdString(p.occtVersion);
     o[QStringLiteral("compiler")] = QString::fromStdString(p.compiler);
     o[QStringLiteral("buildType")] = QString::fromStdString(p.buildType);
@@ -153,6 +155,8 @@ void problemFromJson(const QJsonObject& o, ProblemContext* p)
     p->title = o.value(QStringLiteral("title")).toString().toStdString();
     p->category = categoryFromString(o.value(QStringLiteral("category")).toString());
     p->description = o.value(QStringLiteral("description")).toString().toStdString();
+    p->expectedBehavior = o.value(QStringLiteral("expectedBehavior")).toString().toStdString();
+    p->actualBehavior = o.value(QStringLiteral("actualBehavior")).toString().toStdString();
     p->occtVersion = o.value(QStringLiteral("occtVersion")).toString().toStdString();
     p->compiler = o.value(QStringLiteral("compiler")).toString().toStdString();
     p->buildType = o.value(QStringLiteral("buildType")).toString().toStdString();
@@ -296,18 +300,18 @@ bool SessionSerializer::save(const QString& filePath, const DebugSession& sessio
 
 bool SessionSerializer::load(const QString& filePath, DebugSession* outSession, QString* errorMessage)
 {
-    QFile f(filePath);
-    if (!f.open(QIODevice::ReadOnly))
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly))
     {
         if (errorMessage)
         {
-            *errorMessage = f.errorString();
+            *errorMessage = file.errorString();
         }
         return false;
     }
 
     QJsonParseError parseErr{};
-    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &parseErr);
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseErr);
     if (parseErr.error != QJsonParseError::NoError || !doc.isObject())
     {
         if (errorMessage)

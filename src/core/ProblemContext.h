@@ -23,6 +23,8 @@ struct ProblemContext
     std::string title;
     ProblemCategory category = ProblemCategory::Unknown;
     std::string description;
+    std::string expectedBehavior;
+    std::string actualBehavior;
 
     std::string occtVersion;
     std::string compiler;

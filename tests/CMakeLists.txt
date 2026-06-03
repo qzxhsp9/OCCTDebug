@@ -8,3 +8,11 @@ target_include_directories(occtdebug_shape_smoke PRIVATE "${CMAKE_SOURCE_DIR}/sr
 target_link_libraries(occtdebug_shape_smoke PRIVATE ${OCCT_LIBS} ${FREETYPE_LIBS})
 
 add_test(NAME occtdebug_shape_smoke COMMAND occtdebug_shape_smoke)
+
+add_executable(
+    occtdebug_problem_document_importer
+    problem_document_importer.cpp
+    "${CMAKE_SOURCE_DIR}/src/analysis/ProblemDocumentImporter.cpp")
+target_include_directories(occtdebug_problem_document_importer PRIVATE "${CMAKE_SOURCE_DIR}/src")
+
+add_test(NAME occtdebug_problem_document_importer COMMAND occtdebug_problem_document_importer)

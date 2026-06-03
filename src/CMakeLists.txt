@@ -48,6 +48,8 @@ if(NOT OCCTDEBUG_EFFECTIVE_QT_ROOT AND Qt6_DIR)
 endif()
 
 set(OCCTDEBUG_SOURCES
+    analysis/ProblemDocumentImporter.cpp
+    analysis/ProblemDocumentImporter.h
     app/main.cpp
     app/MainWindow.cpp
     app/MainWindow.h

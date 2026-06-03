@@ -600,7 +600,7 @@ struct ProblemContext
 };
 ```
 
-当前代码中的 `ProblemContext` 尚未包含 `expectedBehavior` 和 `actualBehavior`；这是为 `problem.md` 导入和 AI 分析报告补齐的演进目标。落地时应保持向后兼容，旧 `.occtdbg` 可缺省这两个字段。
+当前代码中的 `ProblemContext` 已包含 `expectedBehavior` 和 `actualBehavior`，并已接入 `.occtdbg` 保存/读取、问题 Markdown 导入和诊断 Markdown 报告导出。旧 `.occtdbg` 可缺省这两个字段，读取时按空字符串处理。
 
 ### 6.6 BugCase / EvidenceBundle / CodexHandoff（规划）
 
@@ -795,7 +795,7 @@ RuleRegistry 筛选适用规则
 
 ### 9.1 Problem Wizard
 
-当前尚未实现独立的 Problem Wizard。下一阶段优先做 `Problem Document Importer`，支持用户手写 `problem.md` 并导入为 `ProblemContext`、输入文件、预期行为、实际行为和复现步骤。GUI 向导可以后置，因为 Markdown 文档更适合早期迭代和 Codex 接管。
+当前已实现第一版 Problem Document 流程：用户可以通过 `File -> Create problem document...` 生成标准 `problem.md`，也可以通过 `File -> Import problem document...` 将手写或生成的 `problem.md` 导入为 `ProblemContext`、输入文件、预期行为、实际行为和复现步骤。模板界面已预留自定义属性的新增/删除入口；多个 BREP/STEP 输入会以一个 OCCT compound 载入主界面。主界面顶部应始终标注当前正在分析的问题，工具使用场景按“一个问题的复现、证据采集、诊断和报告”展开，而不是单纯围绕孤立模型浏览展开。后续 Problem Wizard 不应替代 Markdown，而应围绕同一格式继续增强校验、参数模板和 Codex 接管所需的复现信息。
 
 字段包括：
 
@@ -1673,7 +1673,7 @@ Validation Runner 运行测试
 - 增加 headless CLI；
 - 支持 `analyze --session debug.occtdbg --out report.md --evidence evidence.json`；
 - 支持 `replay --session debug.occtdbg --export-repro repro/`；
-- 支持导入 `problem.md` 生成 `ProblemContext`；
+- 已支持导入 `problem.md` 生成 `ProblemContext`，并提供 GUI 模板生成入口；
 - 支持从问题文档和用户步骤生成初始 `operations`；
 - 支持生成 Repro Sandbox；
 - 支持 Dataflow Trace Collector，在关键算法节点导出 Shape 快照和参数；
@@ -1864,7 +1864,7 @@ Validation Runner 运行测试
 
 ```text
 第 1 步：补齐 M4 缺口，实现 operations 序列化，形成可 replay 的问题会话
-第 2 步：实现 Problem Document Importer，将 problem.md 转成 ProblemContext / inputs / expected / actual
+第 2 步：已实现 Problem Document Importer 和 GUI 模板生成入口；下一步补齐格式校验、输入路径检查和 operations 初始生成
 第 3 步：定义 EvidenceBundle schema，并从当前 ShapeDocument / DiagnosticFinding / 导出物生成 evidence.json
 第 4 步：改造 MarkdownReportExporter，使报告从 EvidenceBundle 生成并引用 evidenceId
 第 5 步：提高 DiagnosticFinding 与 ShapeDocument 节点关联精度，补齐 possibleCauses / relatedShapeIds 输出

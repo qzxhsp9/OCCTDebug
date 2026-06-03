@@ -38,7 +38,16 @@ QString MarkdownReportExporter::exportReport(
 
     md += QStringLiteral("## 2. Problem\n\n");
     md += QStringLiteral("- Title: %1\n").arg(QString::fromStdString(context.title));
-    md += QStringLiteral("- Description: %1\n\n").arg(QString::fromStdString(context.description));
+    md += QStringLiteral("- Description: %1\n").arg(QString::fromStdString(context.description));
+    if (!context.expectedBehavior.empty())
+    {
+        md += QStringLiteral("- Expected: %1\n").arg(QString::fromStdString(context.expectedBehavior));
+    }
+    if (!context.actualBehavior.empty())
+    {
+        md += QStringLiteral("- Actual: %1\n").arg(QString::fromStdString(context.actualBehavior));
+    }
+    md += QStringLiteral("\n");
 
     md += QStringLiteral("## 3. Input Shapes\n\n");
     md += QStringLiteral("| ID | Type | Tolerance | BBox valid |\n");

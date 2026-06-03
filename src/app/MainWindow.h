@@ -8,12 +8,14 @@
 #include <QMainWindow>
 
 #include <QString>
+#include <QStringList>
 
 class QEvent;
 class QShowEvent;
 
 #include <vector>
 class DiagnosticPanel;
+class QLabel;
 class PropertyPanel;
 class QDockWidget;
 class ShapeTreeWidget;
@@ -33,6 +35,8 @@ protected:
 
 private slots:
     void onOpenBrep();
+    void onCreateProblemDocument();
+    void onImportProblemDocument();
     void onRunDiagnostics();
     void onExportMarkdown();
     void onExportShapeJson();
@@ -46,7 +50,9 @@ private slots:
 private:
     void applyProblemDefaults();
     void updateWindowTitle();
+    void updateProblemBanner();
     bool openBrepPath(const QString& path, QString* errorOut);
+    bool openModelPaths(const QStringList& paths, QString* errorOut);
 
     ShapeDocument m_document;
     ProblemContext m_problem;
@@ -56,6 +62,7 @@ private:
     ShapeTreeWidget* m_shapeTree = nullptr;
     PropertyPanel* m_propertyPanel = nullptr;
     DiagnosticPanel* m_diagnosticPanel = nullptr;
+    QLabel* m_problemBanner = nullptr;
     ViewerWidget* m_viewer = nullptr;
     QDockWidget* m_diagnosticDock = nullptr;
     TopologyDetailPanel* m_topologyPanel = nullptr;
