@@ -58,7 +58,7 @@ TopologyDetailPanel::TopologyDetailPanel(QWidget* parent)
     lay->addWidget(m_stack, 1);
 
     m_placeholder = new QLabel(
-        tr("No detail — choose Face (UV / pcurve), Edge (tolerance schematic), or Vertex (adjacent "
+        tr("No detail - choose Face (UV / pcurve), Edge (tolerance schematic), or Vertex (adjacent "
            "edges)."),
         this);
     m_placeholder->setWordWrap(true);
@@ -67,6 +67,7 @@ TopologyDetailPanel::TopologyDetailPanel(QWidget* parent)
 
     auto* facePage = new QWidget(m_stack);
     auto* faceLay = new QVBoxLayout(facePage);
+    faceLay->setContentsMargins(0, 0, 0, 0);
     m_faceCanvas = new FaceUvCanvasWidget(facePage);
     m_faceCanvas->setMinimumHeight(200);
     faceLay->addWidget(m_faceCanvas, 1);
@@ -74,6 +75,7 @@ TopologyDetailPanel::TopologyDetailPanel(QWidget* parent)
 
     auto* edgePage = new QWidget(m_stack);
     auto* edgeLay = new QVBoxLayout(edgePage);
+    edgeLay->setContentsMargins(0, 0, 0, 0);
     m_edgeInfo = new QTextBrowser(edgePage);
     m_edgeInfo->setReadOnly(true);
     m_edgeInfo->setMinimumHeight(80);
@@ -84,6 +86,7 @@ TopologyDetailPanel::TopologyDetailPanel(QWidget* parent)
 
     auto* vertexPage = new QWidget(m_stack);
     auto* vLay = new QVBoxLayout(vertexPage);
+    vLay->setContentsMargins(0, 0, 0, 0);
     m_vertexInfo = new QTextBrowser(vertexPage);
     m_vertexInfo->setReadOnly(true);
     vLay->addWidget(m_vertexInfo);
@@ -116,9 +119,7 @@ void TopologyDetailPanel::inspect(const ShapeDocument& document, int shapeId)
         {
             m_faceCanvas->setPolylines(pls);
             m_stack->setCurrentIndex(1);
-            m_title->setText(tr("Face #%1 — (u,v) domain — wheel: zoom at cursor, middle drag: pan, "
-                                 "double-click: fit")
-                                   .arg(shapeId));
+            m_title->setText(tr("Face #%1 - (u,v) domain").arg(shapeId));
         }
         else
         {
@@ -152,9 +153,7 @@ void TopologyDetailPanel::inspect(const ShapeDocument& document, int shapeId)
         m_edgeInfo->setHtml(html);
         m_edgeSchematic->setTolerances(tolA, tolB, edgeTol);
         m_stack->setCurrentIndex(2);
-        m_title->setText(tr("Edge #%1 — t / δ schematic: wheel zoom at cursor, middle-drag pan, "
-                            "double-click fit")
-                               .arg(shapeId));
+        m_title->setText(tr("Edge #%1 - t / tolerance schematic").arg(shapeId));
         return;
     }
     case ShapeKind::Vertex: {
@@ -179,7 +178,7 @@ void TopologyDetailPanel::inspect(const ShapeDocument& document, int shapeId)
                 {
                     ++count;
                     const double te = BRep_Tool::Tolerance(e);
-                    html += QStringLiteral("<li>#%1 — edge tolerance %2</li>")
+                    html += QStringLiteral("<li>#%1 - edge tolerance %2</li>")
                                 .arg(count)
                                 .arg(te, 0, 'g', 8);
                 }
@@ -190,7 +189,7 @@ void TopologyDetailPanel::inspect(const ShapeDocument& document, int shapeId)
             "<p><i>Later: local 3D fan / star view of these edges.</i></p>");
         m_vertexInfo->setHtml(html);
         m_stack->setCurrentIndex(3);
-        m_title->setText(tr("Vertex #%1 — adjacent edges").arg(shapeId));
+        m_title->setText(tr("Vertex #%1 - adjacent edges").arg(shapeId));
         return;
     }
     default:

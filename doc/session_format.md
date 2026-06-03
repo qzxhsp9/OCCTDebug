@@ -9,7 +9,7 @@ JSON UTF-8 files used by **OCCTDebug** (Milestone 4). Extension suggestion: `.oc
 | `format` | string | Must be `"occtdbg"`. |
 | `version` | number | Currently `1`. |
 | `createdAt` | string | UTC timestamp (ISO 8601, e.g. from `QDateTime::ISODateWithMs`). |
-| `problem` | object | `ProblemContext`: title, category, description, build metadata, parameters. |
+| `problem` | object | `ProblemContext`: title, category, description, expected/actual behavior, build metadata, parameters. |
 | `inputs` | array | Input files with portable paths (often relative to the session file). |
 | `operations` | array | Reserved for future algorithm steps (currently empty `[]`). |
 | `ui` | object | UI hints, e.g. `selectedShapeId`. |
@@ -17,7 +17,7 @@ JSON UTF-8 files used by **OCCTDebug** (Milestone 4). Extension suggestion: `.oc
 
 ## `problem`
 
-- `title`, `description` — strings.
+- `title`, `description`, `expectedBehavior`, `actualBehavior` — strings.
 - `category` — one of: `Unknown`, `Boolean`, `Projection`, `Classification`, `Topology`, `Tolerance`, `Meshing`, `HLR`, `Performance`, `Crash`.
 - `occtVersion`, `compiler`, `buildType` — captured when the session was saved.
 - `inputFiles` — array of strings (legacy mirror of paths; loaders should prefer `inputs`).

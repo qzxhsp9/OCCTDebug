@@ -12,6 +12,7 @@
 class QFocusEvent;
 class QMouseEvent;
 class QPaintEvent;
+class QPaintEngine;
 class QResizeEvent;
 class QShowEvent;
 class QWheelEvent;
@@ -50,6 +51,7 @@ public slots:
 protected:
 #if defined(_WIN32)
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
+    QPaintEngine* paintEngine() const override;
 #endif
     void resizeEvent(QResizeEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
@@ -66,7 +68,7 @@ private:
     void ensureOcctInitialized();
 #if defined(_WIN32)
     void flushView();
-    void presentOnly();
+    void redrawView();
 
     void syncOcctViewport();
     void updateBboxAis();

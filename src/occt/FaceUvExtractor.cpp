@@ -73,6 +73,7 @@ bool OcctExtractFaceUvPolylines(const TopoDS_Face& face, std::vector<FaceUvPolyl
             {
                 continue;
             }
+            poly.edgeBreaks.push_back(poly.points.size());
             if (!poly.points.empty())
             {
                 const auto& a = poly.points.back();
@@ -94,6 +95,7 @@ bool OcctExtractFaceUvPolylines(const TopoDS_Face& face, std::vector<FaceUvPolyl
 
         if (poly.points.size() >= 2)
         {
+            poly.edgeBreaks.push_back(poly.points.size());
             const auto& a = poly.points.front();
             const auto& b = poly.points.back();
             poly.closed = std::hypot(a.first - b.first, a.second - b.second)

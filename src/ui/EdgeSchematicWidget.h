@@ -3,8 +3,8 @@
 #include <QPoint>
 #include <QWidget>
 
-/// Schematic: edge as a line in **t** (curve parameter 0–1), tolerances as disks; **δ** axis (log
-/// scale ticks); wheel zooms **at cursor** along t, middle-drag pans, double-click fits.
+/// Schematic: edge as a line in t (curve parameter 0..1), tolerances as disks on a log scale.
+/// Wheel zooms along t, middle-drag pans, double-click fits.
 class EdgeSchematicWidget final : public QWidget
 {
     Q_OBJECT
@@ -27,7 +27,8 @@ private:
     QRect plotRect() const;
     double xToT(double px) const;
     double tToX(double t) const;
-    void drawAxes(QPainter& p, const QRect& pr, int yMid) const;
+    double toleranceToY(double tol, const QRect& pr) const;
+    void drawAxes(QPainter& p, const QRect& pr) const;
 
     double m_v0 = 1e-7;
     double m_v1 = 1e-7;

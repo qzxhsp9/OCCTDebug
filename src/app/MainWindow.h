@@ -8,12 +8,14 @@
 #include <QMainWindow>
 
 #include <QString>
+#include <QStringList>
 
 class QEvent;
 class QShowEvent;
 
 #include <vector>
 class DiagnosticPanel;
+class QLabel;
 class PropertyPanel;
 class QDockWidget;
 class ShapeTreeWidget;
@@ -33,19 +35,24 @@ protected:
 
 private slots:
     void onOpenBrep();
+    void onCreateProblemDocument();
+    void onImportProblemDocument();
     void onRunDiagnostics();
     void onExportMarkdown();
     void onExportShapeJson();
     void onExportMinimalRepro();
     void onSaveSession();
     void onOpenSession();
+    void onBatchCheckStepAssemblies();
     void onShapeSelected(int shapeId);
     void onFindingActivated(int shapeId);
 
 private:
     void applyProblemDefaults();
     void updateWindowTitle();
+    void updateProblemBanner();
     bool openBrepPath(const QString& path, QString* errorOut);
+    bool openModelPaths(const QStringList& paths, QString* errorOut);
 
     ShapeDocument m_document;
     ProblemContext m_problem;
@@ -55,11 +62,13 @@ private:
     ShapeTreeWidget* m_shapeTree = nullptr;
     PropertyPanel* m_propertyPanel = nullptr;
     DiagnosticPanel* m_diagnosticPanel = nullptr;
+    QLabel* m_problemBanner = nullptr;
     ViewerWidget* m_viewer = nullptr;
-    QDockWidget* m_topologyDock = nullptr;
+    QDockWidget* m_diagnosticDock = nullptr;
     TopologyDetailPanel* m_topologyPanel = nullptr;
 
     QString m_sessionFilePath;
+    QString m_lastImportStructureMessage;
     int m_selectedShapeId = -1;
 
     /// For focusObjectChanged (Qt6): previous focused widget to detect leaving/entering the viewer.

@@ -10,6 +10,8 @@
 struct FaceUvPolyline
 {
     std::vector<std::pair<double, double>> points;
+    /// Start index of each sampled edge segment in points. The last entry is points.size().
+    std::vector<size_t> edgeBreaks;
     bool closed = false;
     bool outerWire = false;
 };
