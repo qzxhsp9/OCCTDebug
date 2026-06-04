@@ -1,5 +1,6 @@
 param(
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [string]$BuildDir = "",
     [string]$OutputPath = ""
 )
 
@@ -110,7 +111,55 @@ function Get-VisualStudioSummary {
     }
 }
 
+function Get-DrawTestSummary {
+    param(
+        [string]$Root,
+        [string]$TestName
+    )
+
+    $testDir = Join-Path $Root "Testing/$TestName"
+    $resultPath = Join-Path $testDir "$TestName.result.json"
+    $logPath = Join-Path $testDir "$TestName.log"
+    $stdoutPath = Join-Path $testDir "$TestName.stdout.log"
+    $stderrPath = Join-Path $testDir "$TestName.stderr.log"
+
+    $summary = [ordered]@{
+        test_name = $TestName
+        result_json = $resultPath
+        result_exists = [bool](Test-Path -LiteralPath $resultPath)
+        log = $logPath
+        log_exists = [bool](Test-Path -LiteralPath $logPath)
+        stdout = $stdoutPath
+        stderr = $stderrPath
+        exit_code = $null
+        success_token = ""
+        success_token_found = $false
+        generated_at = ""
+    }
+
+    if (Test-Path -LiteralPath $resultPath) {
+        try {
+            $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
+            $summary.exit_code = $result.exit_code
+            $summary.success_token = [string]$result.success_token
+            $summary.success_token_found = [bool]$result.success_token_found
+            $summary.generated_at = [string]$result.generated_at
+        } catch {
+            $summary.parse_error = $_.Exception.Message
+        }
+    }
+
+    return $summary
+}
+
 $repoRootPath = (Resolve-Path -LiteralPath $RepoRoot).Path
+if (-not $BuildDir) {
+    $BuildDir = Join-Path $repoRootPath "out/build/debug"
+}
+$buildDirPath = $BuildDir
+if (Test-Path -LiteralPath $buildDirPath) {
+    $buildDirPath = (Resolve-Path -LiteralPath $buildDirPath).Path
+}
 $occtRoot = Join-Path $repoRootPath "depends/occt"
 $freetypeRoot = Join-Path $repoRootPath "depends/occt_3rdparty/freetype-2.13.3-x64"
 $tcltkRoot = Join-Path $repoRootPath "depends/occt_3rdparty/tcltk-8.6.15-x64"
@@ -139,6 +188,7 @@ $snapshot = [ordered]@{
     generated_at = (Get-Date).ToString("o")
     repo = [ordered]@{
         root = $repoRootPath
+        build_dir = $buildDirPath
     }
     windows = [ordered]@{
         caption = [string]$os.Caption
@@ -177,6 +227,11 @@ $snapshot = [ordered]@{
         lib = Join-Path $tcltkRoot "lib"
         tcl86_dll_exists = [bool](Test-Path -LiteralPath (Join-Path $tcltkRoot "bin/tcl86.dll"))
         tk86_dll_exists = [bool](Test-Path -LiteralPath (Join-Path $tcltkRoot "bin/tk86.dll"))
+    }
+    draw_tests = [ordered]@{
+        draw_smoke = Get-DrawTestSummary $buildDirPath "draw_smoke"
+        draw_checkshape_smoke = Get-DrawTestSummary $buildDirPath "draw_checkshape_smoke"
+        testgrid_gate = "Future testgrid CTest entries should require the draw_ready fixture provided by draw_smoke."
     }
     environment = [ordered]@{
         CASROOT = [string]$env:CASROOT
