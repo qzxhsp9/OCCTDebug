@@ -1,7 +1,7 @@
 # OCCT 内核专家工作台 Roadmap
 
 > 项目代号：**OCCT Kernel Expert Workbench**  
-> 当前阶段：旧代码已清理，新的 Qt Widgets 工作台骨架已启动，OCCT 与 Qt 本地依赖已配置  
+> 当前阶段：Qt Widgets 工作台骨架已完成，Case/Runner/DRAW/Viewer/Evidence/Report/Verify 等基础模块已启动，正在收束为真实 Case 工作流
 > 目标平台：**Windows x64**  
 > UI 技术栈：**Qt Widgets + C++**  
 > 内核技术栈：**OCCT + CMake + MSVC/Visual Studio + DRAW Test Harness + testgrid**  
@@ -113,6 +113,8 @@ F:/data/github/OCCTDebug/
 
 当前已经完成一次旧代码清理：旧模型查看器、旧 Shape 树、旧诊断规则、旧 IO、旧会话系统和旧 problem document importer 均已删除。需要旧实现时从 git 历史查找，不在当前源码树中保留无用代码。
 
+当前新的工作台基础已经不再停留在静态 UI：Case 数据模型、环境采集、统一命令执行、DRAW smoke CTest、DRAW 日志解析、临时 CTest 注册、Repro Pack、OCCT Viewer、Evidence 面板、Markdown 报告、testgrid/testdiff 解析、源码索引、相似案例检索和候选补丁审查均已有第一版基础实现。后续重点是把这些能力接入统一 Case workspace，而不是继续扩展离散 mock。
+
 ### 4.1 当前实际结构
 
 当前源码结构应以此为准：
@@ -130,11 +132,17 @@ OCCTDebug/
 
   depends/
     occt/
-    occt_3rdparty/freetype-2.13.3-x64/
+    occt_3rdparty/
+      freetype-2.13.3-x64/
+      tcltk-8.6.15-x64/
 
   doc/
     OCCT_AutoFix_Workbench_Design.md
     OCCT_Kernel_Expert_Workbench_UI_Design.md
+    CODEX_CONTEXT.md
+    CODEX_TASKS.md
+    DEVELOPMENT_CHECKLIST.md
+    DRAW_SMOKE_CTEST.md
     occt内核专家工作台分析界面.png
     roadmap1.md                 # 旧路线图，弃用
     roadmap2.md                 # 当前路线图，后续维护此文件
@@ -147,13 +155,32 @@ OCCTDebug/
     core/
       Logger.h
       Logger.cpp
+      case/
+      geometry/
+      knowledge/
+      patch/
+      report/
+      runner/
+      source/
+      verify/
     workbench/
       WorkbenchWindow.h
       WorkbenchWindow.cpp
+      WorkbenchMockData.h
+      WorkbenchMockData.cpp
 
   tests/
     CMakeLists.txt
-    shape_smoke.cpp
+    draw_smoke.tcl
+    draw_checkshape_smoke.tcl
+
+  scripts/
+    verify_env.ps1
+    run_draw_smoke.ps1
+    parse_draw_log.ps1
+    register_temp_draw_ctest.ps1
+    export_repro_pack.ps1
+    update_codex_context.ps1
 
   data/                         # 样例数据，可继续保留和扩展
   knowledge/                    # 后续知识库占位
@@ -262,6 +289,14 @@ cmake/occt_3rdpart_setup_install.cmake
 depends/occt_3rdparty/freetype-2.13.3-x64
 ```
 
+当前 Tcl/Tk 配置来自：
+
+```text
+depends/occt_3rdparty/tcltk-8.6.15-x64
+```
+
+该目录用于支撑 `DRAWEXE.exe` 运行，`scripts/run_draw_smoke.ps1` 会为 DRAW 进程设置 `TCL_LIBRARY`、`TK_LIBRARY`，并将 Tcl/Tk bin/lib 加入进程级 PATH。不要依赖系统全局 Tcl/Tk。
+
 当前 Qt 配置入口：
 
 ```text
@@ -297,6 +332,21 @@ CMakeUserPresets.json
 cmd /c ""D:\Programming\VisualStudio\2026\Community\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 && cmake --build out\build\debug --config Debug && ctest --test-dir out\build\debug --output-on-failure"
 ```
 
+当前 DRAW smoke 验证命令：
+
+```powershell
+ctest --test-dir out\build\debug -R "draw_.*smoke" --output-on-failure
+```
+
+当前 DRAW CTest：
+
+| CTest | 用途 | 标签 |
+|---|---|---|
+| `draw_smoke` | 验证 DRAWEXE 能启动并执行最小 Tcl | `draw;smoke;occt` |
+| `draw_checkshape_smoke` | 创建内存 box 并执行最小 `checkshape` | `draw;smoke;occt;checkshape` |
+
+`draw_smoke` 提供 CTest fixture `draw_ready`，后续 testgrid/testdiff CTest 必须依赖该 fixture，将 DRAW 环境作为前置门禁。
+
 ### 5.2 后续应用配置文件
 
 后续新增 `config/` 时，建议采用以下约定：
@@ -327,6 +377,7 @@ occt:
 
 third_party:
   freetype_root: "F:/data/github/OCCTDebug/depends/occt_3rdparty/freetype-2.13.3-x64"
+  tcltk_root: "F:/data/github/OCCTDebug/depends/occt_3rdparty/tcltk-8.6.15-x64"
 
 qt:
   root: "D:/Programming/Qt/6.11.0/msvc2022_64"
@@ -347,7 +398,7 @@ privacy:
   allow_external_network: false
 ```
 
-注意：上述 `drawexe`、`source_root`、`testgrid_root` 当前尚未在项目中接入，先留空；等 P2/P3 实现环境检测和 DRAW runner 时再由 UI 自动检测或用户填写。
+注意：`drawexe` 当前可由 `scripts/run_draw_smoke.ps1` 和 `scripts/verify_env.ps1` 自动从仓库内 OCCT 布局检测；`source_root`、`testgrid_root` 仍未接入真实 runner，先留空，等源码索引和 testgrid 阶段由 UI 自动检测或用户填写。
 
 ### 5.3 默认配置文件
 
@@ -518,7 +569,7 @@ P10 产品化、插件化与稳定性增强
 
 ### 当前状态
 
-状态：**基本完成，继续补配置系统**。
+状态：**基本完成，下一步补配置系统与 AppContext**。
 
 P0 已经完成一次关键调整：旧实现已经清理，当前源码树只保留新工作台骨架和最小基础设施。
 
@@ -529,7 +580,8 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 - [x] Qt Widgets 应用入口 `src/app/main.cpp`。
 - [x] 新工作台主界面骨架 `src/workbench/WorkbenchWindow.*`。
 - [x] 最小日志工具 `src/core/Logger.*`。
-- [x] 最小 OCCT 链接 smoke test `tests/shape_smoke.cpp`。
+- [x] DRAW smoke CTest：`draw_smoke`、`draw_checkshape_smoke`。
+- [x] DRAW 运行辅助脚本：日志捕获、result JSON、日志解析、临时 CTest 注册、Repro Pack 导出。
 - [x] 删除旧 GUI、旧诊断、旧 IO、旧会话、旧 Shape 树代码。
 - [x] `README.md` 已说明当前重搭状态。
 
@@ -541,7 +593,7 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 - [ ] 明确 `.gitignore` 中本地配置、case workspace、artifact、cache 的规则。
 - [ ] 实现 `AppContext`，统一管理配置、路径、服务对象。
 - [ ] 实现基础配置加载器。
-- [ ] 实现日志文件输出，而不仅是内存/调试输出。
+- [ ] 将 UI/Runner 日志统一落盘到 Case workspace。
 - [ ] 修正 `cmake/occt_setup_install.cmake` 中 Release DLL 目录疑似指向 Debug 的问题。
 
 ### 交付物
@@ -554,17 +606,18 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 ### 验收标准
 
 - [x] 应用能在 Windows x64 上构建。
-- [x] CTest smoke 能验证 OCCT 基础链接。
+- [x] CTest smoke 能验证 DRAWEXE 启动和最小 checkshape。
 - [x] 启动入口是新的 `WorkbenchWindow`。
 - [ ] 能读取默认配置和本地配置。
-- [ ] 能在 UI 中显示 OCCT、Qt、MSVC、CMake 基础环境信息。
-- [ ] 日志文件能正常写入。
+- [x] `verify_env.ps1` 能输出 OCCT、Qt、MSVC、CMake、DRAWEXE 和 DRAW smoke 状态。
+- [ ] UI 环境 tab 能展示最新环境快照。
+- [ ] UI/Runner 日志文件能按 Case 稳定写入。
 
 ## 9. P1：主界面与案例管理
 
 ### 当前状态
 
-状态：**骨架已完成，真实数据未接入**。
+状态：**骨架已完成，已有 mock/sample 数据，下一步接入真实 Case workspace**。
 
 当前 `WorkbenchWindow` 已经按 UI 设计图完成静态骨架：顶部状态栏、流程工具栏、左侧案例/流程/关键输入、中间源码/几何/证据/差异/环境 tab、右侧诊断/补丁/验证/相似案例、底部 DRAW/CMake/testgrid 控制台。
 
@@ -580,11 +633,13 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 - [x] 实现右侧决策支持面板。
 - [x] 实现底部 console tab 区。
 - [x] 实现暗色主题初版。
+- [x] 实现 mock 数据提供层 `WorkbenchMockData`。
 
 待完成：
 
 - [ ] 拆分 `WorkbenchWindow.cpp`，避免单文件继续膨胀。
-- [ ] 引入 `CaseManifest` / `WorkflowState` 数据模型。
+- [x] 引入 `CaseManifest` 基础数据模型。
+- [ ] 补齐 `WorkflowState` 数据模型。
 - [ ] 将静态样例 case 改为真实 case 数据。
 - [ ] 实现 case 创建、打开、保存。
 - [ ] 实现左侧 case 列表筛选和状态刷新。
@@ -637,7 +692,8 @@ WorkbenchWindow
 - [x] 底部控制台能展示静态样例日志。
 - [ ] 左侧案例能选择并刷新中央区域。
 - [ ] 流程状态能根据 case 状态变化。
-- [ ] 底部控制台能追加真实 runner 日志。
+- [x] 底部控制台已有外部命令输出基础。
+- [ ] 底部控制台输出按 Case artifacts 持久化。
 
 ## 10. P2：环境采集与配置管理
 
@@ -645,20 +701,24 @@ WorkbenchWindow
 
 实现对 Windows、OCCT、Qt、CMake、MSVC、DRAWEXE、testgrid 等环境的自动检测和快照保存。
 
+### 当前状态
+
+状态：**脚本级环境采集已可用，配置系统和 UI 配置对话框未完成**。
+
 ### 主要任务
 
 - [ ] 实现环境配置对话框。
 - [ ] 检测 OCCT 源码目录。
-- [ ] 检测 OCCT build/install 目录。
-- [ ] 检测 `DRAWEXE.exe`。
-- [ ] 检测 `CASROOT`。
-- [ ] 检测 CMake。
-- [ ] 检测 MSVC / VS2022。
-- [ ] 检测 Qt 运行环境。
-- [ ] 检测 PATH 中依赖 DLL。
-- [ ] 检测 Tcl/Tk、FreeType、TBB 等常见依赖。
-- [ ] 保存 `env_snapshot.json`。
-- [ ] 在 UI 中展示环境检查结果。
+- [x] 检测仓库内 OCCT install 目录。
+- [x] 检测 `DRAWEXE.exe`。
+- [x] 检测 DRAW resources。
+- [x] 检测 CMake。
+- [x] 检测 MSVC / Visual Studio。
+- [x] 检测 Qt 运行环境。
+- [x] 检测 Tcl/Tk、FreeType 等常见依赖。
+- [x] 读取 DRAW smoke / checkshape smoke CTest 结果。
+- [ ] 保存 `env_snapshot.json` 到当前 Case。
+- [ ] 在 UI 中展示真实环境检查结果。
 
 ### 对话框
 
@@ -694,11 +754,12 @@ WorkbenchWindow
 
 ### 验收标准
 
-- [ ] 能检测并显示 OCCT 与 Qt 当前配置。
-- [ ] 能检测 DRAWEXE 是否可运行。
-- [ ] 能检测 CMake / MSVC 是否可用。
-- [ ] 能导出完整环境快照。
-- [ ] 配置错误时能给出明确提示。
+- [x] 能检测 OCCT 与 Qt 当前配置。
+- [x] 能检测 DRAWEXE 是否可运行。
+- [x] 能检测 CMake / MSVC 是否可用。
+- [x] 能导出环境快照 JSON。
+- [x] 配置错误时脚本能给出明确提示。
+- [ ] UI 能触发采集并展示错误提示。
 
 ---
 
@@ -708,20 +769,26 @@ WorkbenchWindow
 
 实现最重要的工程闭环基础能力：从 case 输入生成标准复现目录，并执行 DRAW / C++ 复现。
 
+### 当前状态
+
+状态：**DRAW 执行基础已完成，Case workspace 和 C++ 复现模板未完成**。
+
 ### 主要任务
 
 - [ ] 实现新建问题对话框。
 - [ ] 实现 case workspace 初始化。
 - [ ] 实现输入文件导入与 hash 记录。
-- [ ] 实现 DRAW 脚本编辑器。
+- [x] 实现 DRAW 脚本编辑器基础入口。
 - [ ] 实现 C++ 最小复现工程模板。
-- [ ] 实现 DRAWEXE runner。
-- [ ] 实现 PowerShell / CMake runner。
-- [ ] 实现运行日志捕获。
-- [ ] 实现退出码、异常、超时处理。
+- [x] 实现 DRAWEXE runner / CTest wrapper 基础。
+- [x] 实现 PowerShell / CMake runner 基础。
+- [x] 实现 DRAW 运行日志捕获。
+- [x] 实现退出码和失败提示基础。
+- [ ] 完善 UI 侧超时、取消和任务状态。
 - [ ] 实现 crash dump 文件归档。
 - [ ] 实现复现状态判定。
-- [ ] 实现复现报告生成。
+- [x] 实现 Markdown 报告生成骨架。
+- [ ] 将复现报告写入真实 Case workspace。
 
 ### 标准 case 目录
 
@@ -785,9 +852,10 @@ cases/OCC-LOCAL-2026-0001/
 
 - [ ] 能创建一个完整 case 目录。
 - [ ] 能导入 `.brep`、`.step` 等输入数据。
-- [ ] 能运行 DRAW 脚本并捕获输出。
-- [ ] 能显示复现成功 / 失败状态。
-- [ ] 能生成 `repro_report.md`。
+- [x] 能运行最小 DRAW 脚本并捕获输出。
+- [x] 能通过 result JSON 表达 DRAW 成功 / 失败状态。
+- [ ] UI 能将状态写回当前 Case。
+- [ ] 能生成真实 Case 的 `repro_report.md`。
 
 ---
 
@@ -797,16 +865,21 @@ cases/OCC-LOCAL-2026-0001/
 
 实现 OCCT 几何查看和基础 Shape 检查能力，使开发者可以直接在工作台中观察输入模型、异常边/面、中间结果和修复结果。
 
+### 当前状态
+
+状态：**OCCT Viewer 已有基础集成，checkshape smoke 已完成；模型加载和交互仍需推进**。
+
 ### 主要任务
 
-- [ ] 集成 OCCT Viewer 到 Qt 界面。
+- [x] 集成 OCCT Viewer 到 Qt 界面基础。
 - [ ] 支持加载 BREP / STEP / IGES。
 - [ ] 支持基础显示：shaded、wireframe、透明、边线。
 - [ ] 支持选择 face / edge / vertex。
 - [ ] 支持显示 subshape ID。
 - [ ] 支持高亮异常 edge / face。
 - [ ] 实现 Shape 统计：Vertices、Edges、Wires、Faces、Shells、Solids。
-- [ ] 实现基础 checkshape 结果展示。
+- [x] 实现最小 checkshape CTest 和结构化解析基础。
+- [ ] 实现基础 checkshape 结果在 UI 中展示。
 - [ ] 实现 shape dump 导出。
 - [ ] 实现截图保存。
 - [ ] 实现 before / after 对比入口。
@@ -854,6 +927,10 @@ cases/OCC-LOCAL-2026-0001/
 
 将运行日志、调用栈、源码文件、几何对象和复现脚本串联成可审查的证据链。
 
+### 当前状态
+
+状态：**Evidence 面板、源码索引和 DRAW 日志解析已有基础，证据与 Case/run/source/shape 的关联未完成**。
+
 ### 主要任务
 
 - [ ] 实现源码文件浏览器。
@@ -862,9 +939,9 @@ cases/OCC-LOCAL-2026-0001/
 - [ ] 支持从调用栈跳转源码文件。
 - [ ] 支持从日志错误跳转证据项。
 - [ ] 实现调用栈解析。
-- [ ] 实现运行日志结构化解析。
-- [ ] 实现 Evidence 数据模型。
-- [ ] 实现证据链面板。
+- [x] 实现 DRAW 运行日志结构化解析基础。
+- [x] 实现 Evidence 面板骨架。
+- [ ] 补齐 Evidence 数据模型并落盘。
 - [ ] 支持证据项与几何对象关联。
 - [ ] 支持证据项与源码文件关联。
 - [ ] 生成 `diagnosis_evidence.json`。
@@ -892,7 +969,7 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 验收标准
 
-- [ ] 日志中的异常能进入证据链。
+- [ ] 日志中的异常能进入真实 Case 证据链。
 - [ ] 调用栈能显示并跳转源码。
 - [ ] 证据项能关联 case、run、source、shape。
 - [ ] 能生成结构化证据文件。
@@ -905,16 +982,20 @@ cases/OCC-LOCAL-2026-0001/
 
 在证据链基础上生成明确、可审查的诊断结论，并支持检索相似案例、源码位置和历史问题。
 
+### 当前状态
+
+状态：**相似案例检索和源码索引已有基础，诊断结论仍以 mock/骨架为主**。
+
 ### 主要任务
 
 - [ ] 实现诊断结论卡片。
 - [ ] 实现候选根因数据结构。
 - [ ] 实现置信度展示。
 - [ ] 实现相关源码文件列表。
-- [ ] 实现相似案例检索。
+- [x] 实现相似案例检索基础。
 - [ ] 实现本地知识库索引。
-- [ ] 支持对 `doc/`、历史 case、源码说明做本地搜索。
-- [ ] 支持关键词搜索 OCCT 源码。
+- [x] 支持基础本地搜索骨架。
+- [x] 支持关键词搜索源码的基础模块。
 - [ ] 支持按 toolkit / package / class / function 组织检索结果。
 - [ ] 生成 `diagnosis_report.md`。
 
@@ -949,10 +1030,14 @@ cases/OCC-LOCAL-2026-0001/
 
 实现候选补丁管理、diff 查看、风险标记和人工审查流程。
 
+### 当前状态
+
+状态：**候选补丁和审查流程已有基础模型，尚未接入真实 OCCT worktree patch 应用/撤销**。
+
 ### 主要任务
 
-- [ ] 实现 PatchCandidate 数据模型。
-- [ ] 实现补丁方案卡片。
+- [x] 实现 PatchCandidate / PatchReview 基础。
+- [x] 实现补丁方案卡片骨架。
 - [ ] 实现 diff viewer。
 - [ ] 实现补丁文件列表。
 - [ ] 实现风险等级标记。
@@ -1008,14 +1093,19 @@ cases/OCC-LOCAL-2026-0001/
 
 实现从原始问题复验、相关测试运行、testgrid 结果解析到验证报告生成的完整验证能力。
 
+### 当前状态
+
+状态：**CTest DRAW 门禁和 testgrid/testdiff 解析骨架已完成，完整 runner 与验证计划 UI 未完成**。
+
 ### 主要任务
 
 - [ ] 实现验证计划对话框。
 - [ ] 支持运行原始 repro。
 - [ ] 支持运行新增测试。
 - [ ] 支持运行指定 testgrid group / grid / case。
-- [ ] 支持运行 ctest。
-- [ ] 支持解析 testgrid 输出。
+- [x] 支持运行 DRAW smoke CTest。
+- [x] 建立 `draw_smoke` 作为后续 testgrid 前置门禁。
+- [x] 支持解析 testgrid/testdiff 输出骨架。
 - [ ] 支持解析测试通过率、失败列表、耗时。
 - [ ] 支持 before / after 结果对比。
 - [ ] 支持性能变化记录。
@@ -1065,7 +1155,8 @@ V6 全量回归通过
 
 - [ ] 能运行原始 repro 并比较 patch 前后结果。
 - [ ] 能运行指定测试集合。
-- [ ] 能解析并展示通过率。
+- [x] 有解析通过率的基础模块。
+- [ ] UI 能展示通过率。
 - [ ] 能列出失败用例。
 - [ ] 能生成 `verification_report.md`。
 
@@ -1870,31 +1961,38 @@ sample_cases/
 
 ### R0：技术验证版
 
-当前状态：**进行中，核心骨架已达成**。
+当前状态：**基本完成，剩余配置系统与文档收口**。
 
 - [x] Qt Widgets 应用启动。
 - [x] 新工作台第一屏启动。
-- [x] OCCT 基础链接 smoke test 通过。
+- [x] DRAW smoke CTest 通过。
+- [x] 最小 checkshape smoke CTest 通过。
 - [x] 旧代码清理完成。
+- [x] 环境采集脚本可输出 JSON。
+- [x] DRAWEXE 可由脚本/CTest 调用。
+- [x] DRAWEXE 可由应用入口调用基础。
+- [x] OCCT Viewer 最小嵌入 demo。
 - [ ] 配置文件可加载。
-- [ ] 环境信息可在 UI 展示。
-- [ ] OCCT Viewer 最小嵌入 demo。
-- [ ] DRAWEXE 可由应用调用。
+- [ ] 环境信息可在 UI 展示真实采集结果。
 
 ### R1：工作台基础版
 
-- [ ] 主界面完整并拆分为可维护模块。
-- [ ] Case 管理可用。
-- [ ] 环境采集可用。
-- [ ] DRAW 复现可运行。
-- [ ] 日志可展示并落盘。
+- [x] 主界面完整。
+- [ ] 主界面拆分为可维护模块。
+- [ ] Case workspace 创建/加载/保存可用。
+- [x] 环境采集脚本可用。
+- [ ] 环境采集接入 UI 与 Case。
+- [x] DRAW 复现运行基础可用。
+- [ ] DRAW 复现结果写入 Case artifacts。
+- [ ] 日志可展示并按 Case 落盘。
 
 ### R2：复现与几何版
 
 - [ ] 模型导入。
-- [ ] 几何显示。
+- [x] 几何显示基础嵌入。
 - [ ] Shape 统计。
-- [ ] 复现报告生成。
+- [x] Markdown 报告生成骨架。
+- [ ] 真实 Case 复现报告生成。
 
 ### R3：证据与诊断版
 
@@ -1908,7 +2006,8 @@ sample_cases/
 - [ ] diff 查看。
 - [ ] patch 应用 / 撤销。
 - [ ] 验证计划。
-- [ ] testgrid 结果解析。
+- [x] testgrid/testdiff 结果解析骨架。
+- [ ] testgrid/testdiff runner 与 UI 接入。
 - [ ] 验证报告生成。
 
 ### R5：知识闭环版
@@ -1947,30 +2046,76 @@ sample_cases/
 
 ---
 
-## 33. 近期开发顺序建议
+## 33. 最终开发计划
 
-基于当前仓库状态，近期不应再做旧功能迁移，应该从新架构最小闭环开始。
+基于当前仓库状态，后续开发应按“真实 Case 闭环优先、自动化增强后置”的原则推进。不要再做旧功能迁移，也不要继续扩大静态 mock；每个阶段都必须能构建、能运行、能验证。
 
-建议顺序：
+### 33.1 M1：Case 工作台最小闭环
 
 ```text
 1. 统一本地配置和 CMake preset
 2. 建立 AppContext + ConfigService
-3. 定义 CaseManifest / WorkflowState / WorkspaceLayout
-4. 实现 case 目录创建和样例 case 加载
-5. 将 WorkbenchWindow 静态数据替换为 case 数据绑定
-6. 实现日志落盘和底部控制台追加
-7. 实现环境采集与环境信息 tab
-8. 实现 DRAWEXE 路径检测和 DrawRunner
-9. 实现 DRAW 脚本编辑与运行
-10. 接入 OCCT Viewer 最小 demo
-11. 实现 BREP 加载和 Shape 基础统计
-12. 生成第一份 repro_report.md
-13. 实现 EvidenceBundle 第一版
-14. 实现诊断报告导出
+3. 建立 cases/<case_id>/ workspace 标准目录
+4. 补齐 CaseManifest / WorkflowState / WorkspaceLayout
+5. 创建 sample case 并支持打开/保存
+6. 将 WorkbenchWindow 静态数据替换为 sample case 数据绑定
+7. 环境采集写入 case/env/env_snapshot.json
+8. DRAW UI 运行结果写入 case/logs 与 case/artifacts
+9. DRAW 日志解析进入 Evidence 面板
+10. 生成第一份真实 case/report/report.md
+11. 导出失败 DRAW Repro Pack
 ```
 
-其中前 6 项完成后，即可从“静态 UI 骨架”进入“真实 case 工作台”；前 12 项完成后形成第一个可演示 MVP。
+M1 完成后，项目从“可运行骨架”进入“真实 Case 工作台”。这是当前最重要的里程碑。
+
+### 33.2 M2：几何与证据闭环
+
+```text
+1. OCCT Viewer 支持加载小型 BREP/STEP
+2. Shape 基础统计
+3. checkshape 结果 UI 展示
+4. EvidenceBundle 落盘为 JSON
+5. 日志行、Evidence 项、源码位置建立跳转关系
+6. 生成 diagnosis_evidence.json
+7. 报告引用 Evidence 与几何检查结果
+```
+
+M2 完成后，工作台可以支撑真实 OCCT 问题的复现和证据审查。
+
+### 33.3 M3：验证与回归闭环
+
+```text
+1. CTest runner 接入 UI
+2. testgrid/testdiff runner 接入 UI
+3. 所有 testgrid/testdiff 任务依赖 draw_smoke / draw_ready 门禁
+4. 解析通过率、失败列表和日志路径
+5. 生成 verification_report.md
+6. 将验证结果绑定到 PatchCandidate
+```
+
+M3 完成后，候选补丁才具备基本工程验证条件。
+
+### 33.4 M4：诊断、补丁与知识闭环
+
+```text
+1. 源码索引与调用栈跳转
+2. 相似案例和历史知识检索
+3. 候选根因结构化表达
+4. PatchCandidate diff 查看和人工审查
+5. patch 应用/撤销
+6. case 归档与知识条目生成
+7. 从历史 case 复用 repro 和验证模板
+```
+
+M4 完成后，工具形成从问题到知识沉淀的完整工程闭环。
+
+### 33.5 开发节奏约束
+
+- 每个 M 阶段拆成 1-3 天可验收的小任务。
+- 每个任务必须更新相关文档和验收清单。
+- 每次新增外部命令执行都必须有日志、退出码和失败提示。
+- 每次新增 Case artifact 都必须记录相对路径和生成来源。
+- 不在没有稳定复现的情况下推进自动补丁。
 
 ## 34. 首个演示场景脚本
 
@@ -2052,7 +2197,9 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 
 ## 36. 当前立即可执行任务
 
-当前环境已经具备 OCCT 和 Qt，并且新工作台骨架已经存在。下一步立即任务应从配置和真实数据模型开始，而不是继续扩展静态 UI。
+当前环境已经具备 OCCT、Qt、DRAWEXE 和最小 CTest 验证。下一步立即任务应围绕 M1：Case 工作台最小闭环推进，而不是继续扩展静态 UI 或提前进入自动补丁。
+
+### 36.1 N1：配置与上下文
 
 - [ ] 清理/统一 `CMakePresets.json`，确保团队共享 preset 不依赖本机 `CMakeUserPresets.json`。
 - [ ] 明确 `src/QtWorkbenchDefaults.cmake` 为本地 Qt kit 配置入口，并保持 gitignore。
@@ -2061,13 +2208,35 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [ ] 更新 `.gitignore`，覆盖 `config/workbench.local.yaml`、`cases/`、`artifacts/`、`knowledge/cache/` 等本地产物。
 - [ ] 实现 `AppContext`。
 - [ ] 实现 `ConfigService`，读取默认配置、本地配置和 CMake 推导路径。
-- [ ] 定义 `CaseManifest`、`WorkflowState`、`WorkspaceLayout`。
+
+### 36.2 N2：Case workspace
+
+- [ ] 定义 `WorkflowState`、`WorkspaceLayout`，并补齐 `CaseManifest` 与 workspace 的关系。
 - [ ] 创建第一个 sample case 目录结构。
+- [ ] 支持 case 创建、打开、保存。
 - [ ] 将 `WorkbenchWindow` 中静态 case 数据替换为 sample case 数据。
-- [ ] 为底部控制台实现 append log API。
-- [ ] 在环境信息 tab 显示当前 Qt、OCCT、CMake、MSVC 路径和版本。
+- [ ] 所有 artifact 使用相对路径索引。
+
+### 36.3 N3：DRAW 到 Case
+
+- [ ] UI 运行 DRAW 后将 stdout/stderr/result JSON 写入当前 Case。
+- [ ] 使用 `parse_draw_log.ps1` 或等价 C++ 解析器生成 Evidence。
+- [ ] 在 Evidence 面板展示 success token、错误行、checkshape 状态。
+- [ ] 支持从 UI 导出 Repro Pack。
+
+### 36.4 N4：环境与报告
+
+- [ ] UI 触发 `verify_env.ps1` 并保存 `env_snapshot.json`。
+- [ ] 在环境信息 tab 显示 Qt、OCCT、CMake、MSVC、DRAW smoke 状态。
+- [ ] 生成第一份真实 Case Markdown 报告。
+- [ ] 报告中避免泄露不必要的个人绝对路径。
+
+### 36.5 持续门禁
+
+- [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
+- [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。
+- [ ] 保持 `ctest --test-dir out/build/debug --output-on-failure` 通过。
 - [ ] 检查并修正 `cmake/occt_setup_install.cmake` 的 Release DLL 路径。
-- [ ] 保持 `cmake --build out/build/debug --config Debug` 和 `ctest --test-dir out/build/debug --output-on-failure` 通过。
 
 ## 37. 结论
 
