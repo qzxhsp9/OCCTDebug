@@ -1,0 +1,236 @@
+{
+  "case_id": "OCC-LOCAL-2026-0001",
+  "title": "Fillet update fails because generated edge has a null curve",
+  "status": "Reproduced / Analyzing",
+  "created_at": "2026-05-19 14:32",
+  "occt_version": "OCCT 7.8.1",
+  "toolchain": "VS2026 x64",
+  "platform": "Windows x64",
+  "case_list": [
+    {
+      "id": "OCC-LOCAL-2026-0001",
+      "status": "Analyzing",
+      "title": "Fillet update null curve crash",
+      "created_at": "2026-05-19 14:32"
+    },
+    {
+      "id": "OCC-LOCAL-2026-0002",
+      "status": "Pending repro",
+      "title": "Sweep degenerated face exception",
+      "created_at": "2026-05-18 10:21"
+    },
+    {
+      "id": "OCC-LOCAL-2026-0003",
+      "status": "Archived",
+      "title": "Boolean cut produces open shell",
+      "created_at": "2026-05-16 16:08"
+    }
+  ],
+  "workflow": [
+    {
+      "marker": "[done]",
+      "title": "1 Problem intake",
+      "state": "Done"
+    },
+    {
+      "marker": "[done]",
+      "title": "2 Environment capture",
+      "state": "Done"
+    },
+    {
+      "marker": "[done]",
+      "title": "3 DRAW reproduction",
+      "state": "Done"
+    },
+    {
+      "marker": "[done]",
+      "title": "4 Minimal data",
+      "state": "Done"
+    },
+    {
+      "marker": "[done]",
+      "title": "5 Evidence collection",
+      "state": "Done"
+    },
+    {
+      "marker": "[active]",
+      "title": "6 Root-cause analysis",
+      "state": "In progress"
+    },
+    {
+      "marker": "[todo]",
+      "title": "7 Patch candidate",
+      "state": "Not started"
+    },
+    {
+      "marker": "[todo]",
+      "title": "8 Regression validation",
+      "state": "Not started"
+    },
+    {
+      "marker": "[todo]",
+      "title": "9 Knowledge archive",
+      "state": "Not started"
+    }
+  ],
+  "key_inputs": [
+    {
+      "label": "Input model",
+      "value": "valve_body_min.brep"
+    },
+    {
+      "label": "Reproduction type",
+      "value": "DRAW Tcl script"
+    },
+    {
+      "label": "Failure mode",
+      "value": "Crash / Null curve"
+    },
+    {
+      "label": "Confidentiality",
+      "value": "Internal"
+    }
+  ],
+  "source": {
+    "text": "src/BRepFilletAPI/BRepFilletAPI_MakeFillet.cxx\n\n2269     // update generated edge\n2270     Handle(Geom_Curve) aC = BRep_Tool::Curve(aNewEdge, aFirst, aLast);\n2271  -> if (aC.IsNull())  // suspicious: null curve\n2272     {\n2273         SetError(TopAbs_EDGE, aNewEdge, Fillet_NullCurve);\n2274         return;\n2275     }"
+  },
+  "repro": {
+    "script": "restore valve_body_min.brep a\nvdisplay -dispMode 1 a\nfillet a 10.0\n# Reproduces the fillet update failure\nfit\nvfit\ndump a -ov2\nquit"
+  },
+  "geometry": {
+    "summary": "Geometry view currently displays a demo OCCT shape. The target integration will highlight the failing edge E125, show bounding boxes, and sync selected evidence.",
+    "checks": [
+      {
+        "name": "Null Curve",
+        "status": "Fail",
+        "note": "1"
+      },
+      {
+        "name": "Invalid P-Curve",
+        "status": "Fail",
+        "note": "1"
+      },
+      {
+        "name": "Small Radius",
+        "status": "Warn",
+        "note": "<1e-6"
+      },
+      {
+        "name": "Self-Intersection",
+        "status": "Pass",
+        "note": ""
+      }
+    ]
+  },
+  "evidence": {
+    "summary": "Evidence summary:\n- Edge E125 has no 3D curve\n- The paired p-curve exceeds the parameter domain\n- Similar case OCC-2024-1765 has the same failure pattern\n- Crash happens during fillet generated-edge update",
+    "items": [
+      {
+        "type": "DRAW",
+        "title": "Runtime log",
+        "summary": "Null curve exception is reproducible",
+        "link": "logs/draw.log"
+      },
+      {
+        "type": "Shape",
+        "title": "Geometry check",
+        "summary": "Edge E125 misses its 3D curve",
+        "link": "evidence/shape.json"
+      },
+      {
+        "type": "Source",
+        "title": "Source location",
+        "summary": "BRep_Tool::Curve returns null",
+        "link": "BRepFilletAPI_MakeFillet.cxx:2271"
+      }
+    ]
+  },
+  "diff": {
+    "summary": "testdiff will compare geometry, images, and performance before and after the candidate patch."
+  },
+  "environment": {
+    "summary": "verify_env.ps1 captures Windows, MSVC, CMake, Qt, OCCT, DRAWEXE, CASROOT, PATH, and third-party dependency snapshots."
+  },
+  "diagnosis": {
+    "summary": "Root cause hypothesis: the fillet builder creates edge E125 without a valid 3D curve, so BRep_Tool::Curve returns null and the later update path fails.",
+    "confidence": 86
+  },
+  "patch": {
+    "diff": "BRepFilletAPI_MakeFillet.cxx\n@@ -2268,7 +2268,11 @@\n  Handle(Geom_Curve) aC = BRep_Tool::Curve(aNewEdge, aFirst, aLast);\n- if (aC.IsNull())\n+ if (aC.IsNull())\n  {\n+   // Candidate patch: record the failing edge and try a local recovery path.\n+   TryRecoverCurve(aNewEdge, aC);\n+   if (aC.IsNull())\n    SetError(TopAbs_EDGE, aNewEdge, Fillet_NullCurve);\n    return;\n  }"
+  },
+  "verification": {
+    "items": [
+      {
+        "label": "Original issue",
+        "value": "Reproduced / not fixed"
+      },
+      {
+        "label": "Related tests",
+        "value": "33 / 35"
+      },
+      {
+        "label": "testgrid",
+        "value": "293 / 298"
+      },
+      {
+        "label": "Performance delta",
+        "value": "+0.8%"
+      },
+      {
+        "label": "Regression risk",
+        "value": "Low"
+      }
+    ]
+  },
+  "similar_cases": [
+    {
+      "id": "OCC-2024-1765",
+      "title": "Fillet Null curve crash",
+      "score": "0.92"
+    },
+    {
+      "id": "OCC-2023-1421",
+      "title": "Small radius fillet issue",
+      "score": "0.78"
+    },
+    {
+      "id": "OCC-2022-0987",
+      "title": "Invalid p-curve on edge",
+      "score": "0.63"
+    }
+  ],
+  "consoles": {
+    "draw": "DRAW 7.8.1 (64-bit)\n> restore valve_body_min.brep a\n-- Reading file ... Done\n> fillet a 10.0\n-- Building fillet ...\n*** Exception Standard_ConstructionError:\nBRep_Tool::Curve() - Null curve\n>",
+    "cmake": "CMake configure: OK\nBuild type: Debug\nMSVC 19.44\n[1/42] Building CXX object ...\n[42/42] Linking ...\nBuild completed successfully.",
+    "testgrid": [
+      {
+        "module": "Modeling",
+        "run": "98",
+        "pass": "96",
+        "fail": "1",
+        "pass_rate": "97.9%"
+      },
+      {
+        "module": "Visualization",
+        "run": "76",
+        "pass": "75",
+        "fail": "0",
+        "pass_rate": "98.7%"
+      },
+      {
+        "module": "Data Exchange",
+        "run": "62",
+        "pass": "61",
+        "fail": "1",
+        "pass_rate": "98.4%"
+      },
+      {
+        "module": "Total",
+        "run": "236",
+        "pass": "232",
+        "fail": "2",
+        "pass_rate": "98.3%"
+      }
+    ]
+  }
+}

@@ -1,56 +1,59 @@
-# OCCTDebug
+# OCCT Kernel Expert Workbench
 
-用于调试与分析 [Open CASCADE Technology (OCCT)](https://dev.opencascade.org/) 源码的桌面工具。项目以迭代方式演进，长期目标是：在给出问题环境（场景、版本、复现步骤等）后，辅助定位根因。
+面向 Windows + Qt + OCCT 的内核问题工程化工作台。当前项目已放弃旧的模型查看器/诊断器实现，重新按以下文档搭建：
 
-## 技术栈
+- `doc/OCCT_AutoFix_Workbench_Design.md`
+- `doc/OCCT_Kernel_Expert_Workbench_UI_Design.md`
+- `doc/occt内核专家工作台分析界面.png`
 
-- **Qt6**：界面与跨平台桌面壳
-- **OCCT**：几何内核与调试对象
+目标不是做普通几何查看器，而是逐步实现：
 
-## 目录结构
+```text
+问题录入 -> 环境采集 -> 自动复现 -> 数据最小化 -> 源码分析 -> 根因诊断 -> 补丁方案 -> 回归验证 -> 知识归档
+```
+
+## 当前状态
+
+当前代码只保留重搭所需的最小骨架：
 
 | 路径 | 说明 |
-|------|------|
-| `src/app/`、`src/ui/`、`src/core/`、`src/occt/`、`src/diagnose/`、`src/io/` | 按开发计划划分的源码模块 |
-| `tests/` | CTest：`occtdebug_shape_smoke`（无 Qt，验证 OCCT 与 Shape 树构建） |
-| `knowledge/` | 规则/案例/API 占位（里程碑 6） |
-| `cmake/` | CMake 辅助脚本（查找依赖、工具链等） |
-| `depends/` | 预置 OCCT / FreeType 布局（`depends/occt`、`depends/occt_3rdparty/...`） |
-| `doc/` | `OCCTDebug_Development_Plan.md`、`architecture.md`、`roadmap.md` 等 |
+|---|---|
+| `src/app/` | 应用入口，启动新的工作台主窗口 |
+| `src/workbench/` | 新的 OCCT 内核专家工作台 UI 骨架 |
+| `src/core/Logger.*` | 最小日志工具 |
+| `tests/` | 最小 OCCT 链接 smoke test |
+| `cmake/` | OCCT / FreeType 查找脚本 |
+| `depends/` | 本地 OCCT / FreeType 依赖 |
+| `doc/` | 新产品和 UI 设计文档 |
+
+旧 GUI、旧 Shape 树、旧诊断规则、旧会话和旧导入导出代码已删除；需要时从 git 历史查找。
 
 ## 依赖
 
 - CMake 3.20+
-- 支持 C++17 的编译器（MSVC 2019+、GCC 10+、Clang 12+ 等）
-- Qt6（Core、Gui、Widgets）
-- **OCCT**：按 `cmake/occt_setup_install.cmake` 从 `depends/occt` 解析头文件与库
-- **FreeType**：按 `cmake/occt_3rdpart_setup_install.cmake` 从 `depends/occt_3rdparty\freetype-2.13.3-x64` 解析
-
-### Qt 路径
-
-配置时会**先用当前的 `CMAKE_PREFIX_PATH` / `Qt6_DIR` 查找 Qt6**（适合已在 Visual Studio「CMake 变量」或 `CMakeSettings.json` 里配置过 Qt 的情况）。若仍未找到，再使用下面任一方式：
-
-1. 配置 CMake 时设置 **`OCCTDEBUG_QT_ROOT`** 指向含 `lib/cmake/Qt6` 的 Qt 安装根目录，或  
-2. 将 `src/QtWorkbenchDefaults.cmake.example` 复制为 **`src/QtWorkbenchDefaults.cmake`**（已 gitignore），在其中设置 **`OCCTDEBUG_QT_DEFAULT_KIT`**。
-
-Windows 下构建完成后会尽量运行 **`windeployqt`**（或回退为复制 `bin` 与 `plugins/platforms`），并把 **OCCT / FreeType** 的 DLL 拷到可执行文件目录。
+- 支持 C++17 的 MSVC / GCC / Clang
+- Qt6 Core / Gui / Widgets
+- OCCT，本项目按 `cmake/occt_setup_install.cmake` 从 `depends/occt` 解析
+- FreeType，本项目按 `cmake/occt_3rdpart_setup_install.cmake` 从 `depends/occt_3rdparty` 解析
 
 ## 构建
 
-单配置生成器需指定 **`CMAKE_BUILD_TYPE`**，以便选中 `depends/occt` 下对应 Debug/Release 库目录。
-
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-```
-
-Windows 多配置（Visual Studio）示例：
+示例：
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DOCCTDEBUG_QT_ROOT="C:/Qt/6.11.0/msvc2022_64"
-cmake --build build --config Release
+cmake --preset Qt-Debug
+cmake --build out/build/debug --config Debug
+ctest --test-dir out/build/debug --output-on-failure
 ```
 
-## 许可证
+如果直接使用 Visual Studio Developer Command Prompt：
 
-在确定分发策略前，默认仅用于个人/内部调试；若引用 OCCT/Qt，请遵守各自许可证。
+```powershell
+cmake -S . -B out/build/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build out/build/debug --config Debug
+ctest --test-dir out/build/debug --output-on-failure
+```
+
+## 下一步
+
+见 `doc/roadmap2.md`。`doc/roadmap1.md` 仅保留为历史参考，不再作为后续开发依据。

@@ -48,71 +48,29 @@ if(NOT OCCTDEBUG_EFFECTIVE_QT_ROOT AND Qt6_DIR)
 endif()
 
 set(OCCTDEBUG_SOURCES
-    analysis/ProblemDocumentImporter.cpp
-    analysis/ProblemDocumentImporter.h
     app/main.cpp
-    app/MainWindow.cpp
-    app/MainWindow.h
+    core/case/CaseManifest.cpp
+    core/case/CaseManifest.h
+    core/geometry/OcctViewerWidget.cpp
+    core/geometry/OcctViewerWidget.h
+    core/knowledge/SimilarCaseSearch.cpp
+    core/knowledge/SimilarCaseSearch.h
     core/Logger.cpp
     core/Logger.h
-    core/ShapeDocument.cpp
-    core/ShapeDocument.h
-    core/ShapeNode.h
-    core/ShapeKind.cpp
-    core/ShapeKind.h
-    core/DebugSession.h
-    core/DiagnosticFinding.h
-    core/ProblemContext.h
-    occt/OcctUtils.h
-    occt/BBoxWire.cpp
-    occt/BBoxWire.h
-    occt/GeometrySummary.cpp
-    occt/GeometrySummary.h
-    occt/FaceUvExtractor.cpp
-    occt/FaceUvExtractor.h
-    occt/ShapeInspector.cpp
-    occt/ShapeInspector.h
-    io/BRepLoader.cpp
-    io/BRepLoader.h
-    io/MarkdownReportExporter.cpp
-    io/MarkdownReportExporter.h
-    io/ReproPackageExporter.cpp
-    io/ReproPackageExporter.h
-    io/SessionSerializer.cpp
-    io/SessionSerializer.h
-    io/ShapeTreeJsonExporter.cpp
-    io/ShapeTreeJsonExporter.h
-    diagnose/DiagnosticEngine.cpp
-    diagnose/DiagnosticEngine.h
-    diagnose/RuleRegistry.cpp
-    diagnose/RuleRegistry.h
-    diagnose/IDiagnosticRule.h
-    diagnose/rules/CheckNullShapeRule.cpp
-    diagnose/rules/CheckNullShapeRule.h
-    diagnose/rules/CheckWireClosedRule.cpp
-    diagnose/rules/CheckWireClosedRule.h
-    diagnose/rules/CheckShellClosedRule.cpp
-    diagnose/rules/CheckShellClosedRule.h
-    diagnose/rules/CheckToleranceRule.cpp
-    diagnose/rules/CheckToleranceRule.h
-    diagnose/rules/CheckBRepValidityRule.cpp
-    diagnose/rules/CheckBRepValidityRule.h
-    diagnose/rules/CheckSameParameterRule.cpp
-    diagnose/rules/CheckSameParameterRule.h
-    ui/ShapeTreeWidget.cpp
-    ui/ShapeTreeWidget.h
-    ui/PropertyPanel.cpp
-    ui/PropertyPanel.h
-    ui/DiagnosticPanel.cpp
-    ui/DiagnosticPanel.h
-    ui/ViewerWidget.cpp
-    ui/ViewerWidget.h
-    ui/FaceUvCanvasWidget.cpp
-    ui/FaceUvCanvasWidget.h
-    ui/EdgeSchematicWidget.cpp
-    ui/EdgeSchematicWidget.h
-    ui/TopologyDetailPanel.cpp
-    ui/TopologyDetailPanel.h
+    core/patch/PatchReview.cpp
+    core/patch/PatchReview.h
+    core/report/MarkdownReportGenerator.cpp
+    core/report/MarkdownReportGenerator.h
+    core/runner/CommandRunner.cpp
+    core/runner/CommandRunner.h
+    core/source/SourceIndex.cpp
+    core/source/SourceIndex.h
+    core/verify/VerificationResultParser.cpp
+    core/verify/VerificationResultParser.h
+    workbench/WorkbenchMockData.cpp
+    workbench/WorkbenchMockData.h
+    workbench/WorkbenchWindow.cpp
+    workbench/WorkbenchWindow.h
 )
 
 qt_add_executable(OCCTDebug
@@ -126,6 +84,12 @@ set_target_properties(OCCTDebug PROPERTIES
 
 target_include_directories(OCCTDebug PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}"
+)
+
+target_compile_definitions(OCCTDebug PRIVATE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+    OCCTDEBUG_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
 )
 
 target_link_libraries(OCCTDebug PRIVATE

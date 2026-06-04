@@ -1,0 +1,19 @@
+# OCCTDebug 项目级 Codex 配置示例
+# 放在仓库根目录的 .codex/config.toml。
+# 首次在 Codex 中打开项目时，请确认该项目是可信项目，再允许加载项目级配置。
+
+# 建议默认保持按需审批，避免 Codex 在 Windows 机器上自动执行高风险命令。
+approval_policy = "on-request"
+
+# 允许 Codex 在工作区内读写，但不默认放开整个文件系统。
+sandbox_mode = "workspace-write"
+
+# OCCTDebug 的项目说明较多，适当提高项目说明读取上限。
+project_doc_max_bytes = 65536
+
+# 如果后续团队想用 CODEX.md 或 CONTRIBUTING.md 作为补充指令，可加入 fallback。
+project_doc_fallback_filenames = ["CODEX.md", "CONTRIBUTING.md"]
+
+[windows]
+# Windows 原生 Codex 推荐使用 elevated；如果没有管理员权限，可改为 unelevated。
+sandbox = "elevated"

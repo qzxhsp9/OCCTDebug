@@ -1,0 +1,5 @@
+# name status metric note
+geometry_images diff 2px failing-edge-highlight-changed
+brep_properties changed 1 edge-null-curve-detected
+performance pass +0.8% within-threshold
+regression fail 2 needs-review-before-merge
