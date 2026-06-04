@@ -628,9 +628,26 @@ void WorkbenchWindow::runCurrentDrawScript()
     request.arguments = {QStringLiteral("/c"), command};
     request.workingDirectory = runtimeReproDirectory();
     request.environment = QProcessEnvironment::systemEnvironment();
-    request.environment.insert(QStringLiteral("CASROOT"), QFileInfo(drawExe).absolutePath());
+
+    const QString drawBinDir = QFileInfo(drawExe).absolutePath();
+    QString casRoot = drawBinDir;
+    QStringList pathEntries;
+    pathEntries << drawBinDir;
+#ifdef OCCTDEBUG_SOURCE_DIR
+    const QString sourceRoot = QStringLiteral(OCCTDEBUG_SOURCE_DIR);
+    casRoot = QDir(sourceRoot).filePath(QStringLiteral("depends/occt"));
+    const QDir thirdPartyRoot(QDir(sourceRoot).filePath(QStringLiteral("depends/occt_3rdparty")));
+    const QString freetypeBinDir = thirdPartyRoot.filePath(QStringLiteral("freetype-2.13.3-x64/bin"));
+    const QString tcltkBinDir = thirdPartyRoot.filePath(QStringLiteral("tcltk-8.6.15-x64/bin"));
+    const QString tcltkLibDir = thirdPartyRoot.filePath(QStringLiteral("tcltk-8.6.15-x64/lib"));
+    pathEntries << freetypeBinDir << tcltkBinDir << tcltkLibDir;
+    request.environment.insert(QStringLiteral("TCL_LIBRARY"), QDir(tcltkLibDir).filePath(QStringLiteral("tcl8.6")));
+    request.environment.insert(QStringLiteral("TK_LIBRARY"), QDir(tcltkLibDir).filePath(QStringLiteral("tk8.6")));
+#endif
+
+    request.environment.insert(QStringLiteral("CASROOT"), casRoot);
     request.environment.insert(QStringLiteral("PATH"),
-        QFileInfo(drawExe).absolutePath() + QStringLiteral(";") + request.environment.value(QStringLiteral("PATH")));
+        pathEntries.join(QLatin1Char(';')) + QStringLiteral(";") + request.environment.value(QStringLiteral("PATH")));
 
     if (m_drawConsole != nullptr)
     {

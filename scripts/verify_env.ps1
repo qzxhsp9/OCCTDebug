@@ -113,6 +113,7 @@ function Get-VisualStudioSummary {
 $repoRootPath = (Resolve-Path -LiteralPath $RepoRoot).Path
 $occtRoot = Join-Path $repoRootPath "depends/occt"
 $freetypeRoot = Join-Path $repoRootPath "depends/occt_3rdparty/freetype-2.13.3-x64"
+$tcltkRoot = Join-Path $repoRootPath "depends/occt_3rdparty/tcltk-8.6.15-x64"
 $qtDefaultFile = Join-Path $repoRootPath "src/QtWorkbenchDefaults.cmake"
 $drawExe = Find-DrawExe $repoRootPath
 
@@ -162,10 +163,20 @@ $snapshot = [ordered]@{
         exists = [bool](Test-Path -LiteralPath $occtRoot)
         drawexe = $drawExe
         drawexe_exists = [bool]$drawExe
+        draw_resources = Join-Path $occtRoot "src/DrawResources"
+        draw_default_exists = [bool](Test-Path -LiteralPath (Join-Path $occtRoot "src/DrawResources/DrawDefault"))
     }
     freetype = [ordered]@{
         root = $freetypeRoot
         exists = [bool](Test-Path -LiteralPath $freetypeRoot)
+    }
+    tcltk = [ordered]@{
+        root = $tcltkRoot
+        exists = [bool](Test-Path -LiteralPath $tcltkRoot)
+        bin = Join-Path $tcltkRoot "bin"
+        lib = Join-Path $tcltkRoot "lib"
+        tcl86_dll_exists = [bool](Test-Path -LiteralPath (Join-Path $tcltkRoot "bin/tcl86.dll"))
+        tk86_dll_exists = [bool](Test-Path -LiteralPath (Join-Path $tcltkRoot "bin/tk86.dll"))
     }
     environment = [ordered]@{
         CASROOT = [string]$env:CASROOT

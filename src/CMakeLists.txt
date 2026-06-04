@@ -160,3 +160,13 @@ if(WIN32 AND FREETYPE_DLLS)
             "$<TARGET_FILE_DIR:OCCTDebug>"
         VERBATIM)
 endif()
+
+if(WIN32 AND TCLTK_DLLS)
+    add_custom_command(
+        TARGET OCCTDebug
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${TCLTK_DLLS}
+            "$<TARGET_FILE_DIR:OCCTDebug>"
+        VERBATIM)
+endif()
