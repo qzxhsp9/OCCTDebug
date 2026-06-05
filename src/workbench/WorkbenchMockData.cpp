@@ -193,6 +193,7 @@ WorkbenchMockData createWorkbenchDataFromCase(const CaseManifest& manifest)
     data.verificationItems = manifest.verificationItems;
     data.verificationPlan = manifest.verificationPlan;
     data.testdiffGenerationConfig = manifest.testdiffGenerationConfig;
+    data.taskHistory = manifest.taskHistory;
     data.similarCases = manifest.similarCases;
     data.testgridRows = manifest.testgridRows;
     data.patchReviewItems = manifest.patchReviewItems;
@@ -382,6 +383,25 @@ WorkbenchMockData createMockWorkbenchData()
         {QStringLiteral("Foundation"), QStringLiteral("62"), QStringLiteral("62"), QStringLiteral("0"), QStringLiteral("100.0%")},
         {QString::fromUtf8("总计"), QStringLiteral("298"), QStringLiteral("293"), QStringLiteral("2"), QStringLiteral("98.3%")},
     };
+    data.taskHistory = {
+        {
+            QStringLiteral("draw"),
+            QStringLiteral("DRAW repro"),
+            QStringLiteral("failed"),
+            QStringLiteral("DRAWEXE.exe"),
+            QStringLiteral("< repro/repro.tcl"),
+            QStringLiteral("repro"),
+            QStringLiteral("2026-06-05T00:00:00Z"),
+            QStringLiteral("2026-06-05T00:00:02Z"),
+            2000,
+            1,
+            QStringLiteral("logs/draw.stdout.log"),
+            QStringLiteral("logs/draw.stderr.log"),
+            QStringLiteral("artifacts/draw_result.json"),
+            QStringLiteral("mock task history entry"),
+        },
+    };
+    data.manifest.taskHistory = data.taskHistory;
 
     loadExternalVerificationFiles(data, sampleCaseDirectory());
     return data;

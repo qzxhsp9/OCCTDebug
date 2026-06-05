@@ -35,6 +35,7 @@ class DiffPanel;
 class EvidencePanel;
 struct ReportRefreshRequest;
 class SourcePanel;
+class TaskHistoryPanel;
 class VerificationPanel;
 }
 
@@ -150,6 +151,19 @@ private:
     void runTestdiffAdapter();
     void runTwoStageVerification();
     void cancelRunner(occtdebug::CommandRunner* runner, const QString& label, QTextEdit* console);
+    void recordTaskStarted(const QString& id,
+                           const QString& title,
+                           const occtdebug::CommandRequest& request,
+                           const QString& artifact = QString(),
+                           const QString& stdoutLog = QString(),
+                           const QString& stderrLog = QString());
+    void recordTaskFinished(const QString& id,
+                            const occtdebug::CommandResult& result,
+                            const QString& artifact = QString(),
+                            const QString& stdoutLog = QString(),
+                            const QString& stderrLog = QString(),
+                            const QString& note = QString());
+    void refreshTaskHistoryPanel();
     void handleTestgridGateFinished(const occtdebug::CommandResult& result);
     void handleTestgridCommandFinished(const occtdebug::CommandResult& result);
     void handleTestdiffGateFinished(const occtdebug::CommandResult& result);
@@ -236,6 +250,7 @@ private:
     QTabWidget* m_workspaceTabs = nullptr;
     QTabWidget* m_bottomTabs = nullptr;
     occtdebug::EvidencePanel* m_evidencePanel = nullptr;
+    occtdebug::TaskHistoryPanel* m_taskHistoryPanel = nullptr;
     occtdebug::VerificationPanel* m_verificationPanel = nullptr;
     QListWidget* m_similarCasesList = nullptr;
     QLineEdit* m_similarCaseSearchEdit = nullptr;

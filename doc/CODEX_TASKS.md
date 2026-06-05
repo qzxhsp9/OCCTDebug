@@ -95,15 +95,16 @@
 - N72：`CaseManifest` 新增 `repro.status`，`ReproStatusEvaluator` 统一判定 DRAW/C++/testgrid 复现状态；DRAW 运行、C++ 模板生成和 testgrid 落盘会写回 Case，并用 `repro_status_evaluator_smoke` 与 `case_manifest_plan_smoke` 覆盖。
 - N73：`CaseManifest` 新增 `verification.testdiff_generation`，`TestdiffGenerationContract` 补充默认 opt-in 配置、容差/阈值和失败报告 schema；`TestdiffGenerationPolicy` 可识别显式 opt-in 并输出有效配置与 `failure_report` 状态，但仍保持 `enabled=false`、`generation_performed=false`，不生成伪 artifact。新增 `testdiff_generation_failure_report_smoke`，并扩展 contract/policy/case manifest smoke 覆盖。
 - N74：新增 `workbench/CaseManifestSync.*`，把 `WorkbenchWindow` 中保存 Case 时的可变字段回填抽成纯 helper；`WorkbenchMockData` 新增 `testdiffGenerationConfig` 并随 Case 加载/保存同步，`workbench_presenter_smoke` 覆盖 repro、testdiff generation、patch、testgrid 和 workflow fallback 的同步。
+- N75：`CaseManifest` 新增 `tasks.history`，`WorkbenchMockData` / `CaseManifestSync` 同步任务历史；新增 `workbench/TaskHistoryPanel.*` 和底部 `Tasks` tab，DRAW/env/Repro Pack/testgrid/testdiff/two-stage/patch 命令会记录 start/finished 状态、耗时、退出码、相对日志和 artifact。`case_manifest_plan_smoke` 覆盖 JSON 往返，`workbench_presenter_smoke` 覆盖最新任务优先展示。
 
 后续任务应优先把这些基础能力串成真实 Case 工作流。
 
 ## 2. 推荐任务顺序
 
 ```text
-N75 完善命令任务队列/状态面板，把当前最小状态日志升级为可浏览的任务历史
 N76 为真实 testdiff 生成器输出 sidecar 与 failure report writer 后，再启用具体生成算法
 N77 继续收束 WorkbenchWindow 中剩余命令编排和 UI 刷新职责
+N78 在 TaskHistory 基础上补真正的队列调度、逐任务取消入口和 dry-run/subphase 子任务分组
 ```
 
 ## 3. N1：配置系统与 AppContext

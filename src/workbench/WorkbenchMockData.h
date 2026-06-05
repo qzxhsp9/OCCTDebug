@@ -40,6 +40,7 @@ struct WorkbenchMockData
     QVector<LabelValue> verificationItems;
     VerificationPlan verificationPlan;
     TestdiffGenerationConfig testdiffGenerationConfig;
+    QVector<TaskRecord> taskHistory;
     QVector<SimilarCase> similarCases;
     QVector<TestgridRow> testgridRows;
     QVector<LabelValue> patchReviewItems;

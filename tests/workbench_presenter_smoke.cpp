@@ -3,6 +3,7 @@
 #include "workbench/DiffPanel.h"
 #include "workbench/EvidenceCoordinator.h"
 #include "workbench/EvidencePanel.h"
+#include "workbench/TaskHistoryPanel.h"
 #include "workbench/TestdiffAdapterResultCoordinator.h"
 #include "workbench/TestgridTablePresenter.h"
 #include "workbench/TwoStageFinalResultCoordinator.h"
@@ -57,6 +58,22 @@ int main(int argc, char** argv)
     syncData.patchSignoffNote = QStringLiteral("ready");
     syncData.patchReviewItems = {{QStringLiteral("risk"), QStringLiteral("low")}};
     syncData.testgridRows = {{QStringLiteral("bugs modalg_1"), QStringLiteral("1"), QStringLiteral("1"), QStringLiteral("0"), QStringLiteral("100%")}};
+    syncData.taskHistory = {{
+        QStringLiteral("draw"),
+        QStringLiteral("DRAW repro"),
+        QStringLiteral("passed"),
+        QStringLiteral("cmd.exe"),
+        QStringLiteral("/c draw"),
+        QStringLiteral("repro"),
+        QStringLiteral("2026-06-05T00:00:00Z"),
+        QStringLiteral("2026-06-05T00:00:01Z"),
+        1000,
+        0,
+        QStringLiteral("logs/draw.stdout.log"),
+        QStringLiteral("logs/draw.stderr.log"),
+        QStringLiteral("artifacts/draw_result.json"),
+        QStringLiteral("ok"),
+    }};
     syncData.workflowSteps = {{QStringLiteral("input"), QStringLiteral("1"), QStringLiteral("Input"), QStringLiteral("done"), QStringLiteral("ok")}};
 
     occtdebug::CaseManifest syncedManifest;
@@ -70,10 +87,37 @@ int main(int argc, char** argv)
         || syncedManifest.patchReviewStatus != QStringLiteral("approved")
         || syncedManifest.patchSignoffStatus != QStringLiteral("signed off")
         || syncedManifest.testgridRows.size() != 1
+        || syncedManifest.taskHistory.size() != 1
         || syncedManifest.workflowState.activeStepId != QStringLiteral("input")
         || syncedManifest.workflowSteps.size() != 1)
     {
         QTextStream(stderr) << "case manifest sync did not copy mutable workbench fields\n";
+        return 1;
+    }
+
+    occtdebug::TaskHistoryPanel taskPanel;
+    syncData.taskHistory.push_back({
+        QStringLiteral("testgrid"),
+        QStringLiteral("testgrid gate"),
+        QStringLiteral("failed"),
+        QStringLiteral("ctest"),
+        QStringLiteral("-R draw_smoke"),
+        QStringLiteral("repo"),
+        QStringLiteral("2026-06-05T00:00:02Z"),
+        QStringLiteral("2026-06-05T00:00:03Z"),
+        1000,
+        1,
+        QStringLiteral("logs/testgrid_gate.stdout.log"),
+        QStringLiteral("logs/testgrid_gate.stderr.log"),
+        QStringLiteral("artifacts/testgrid_result.json"),
+        QStringLiteral("gate failed"),
+    });
+    taskPanel.setTasks(syncData.taskHistory);
+    if (taskPanel.taskCount() != 2
+        || taskPanel.statusAt(0) != QStringLiteral("failed")
+        || taskPanel.artifactAt(0) != QStringLiteral("artifacts/testgrid_result.json"))
+    {
+        QTextStream(stderr) << "task history panel did not show latest task first\n";
         return 1;
     }
 

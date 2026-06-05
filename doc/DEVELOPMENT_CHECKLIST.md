@@ -53,6 +53,7 @@
 - [x] CaseManifest 支持 JSON 保存基础。
 - [x] CaseManifest 支持 `input.files` 输入文件摘要，包含 Case 相对路径、原始文件名、bytes、SHA-256 和导入时间。
 - [x] CaseManifest 支持 `repro.status` 复现状态摘要，包含 overall、DRAW、C++、testgrid、更新时间和摘要。
+- [x] CaseManifest 支持 `tasks.history` 任务历史摘要，包含状态、耗时、退出码、命令摘要、相对日志和 artifact 路径。
 - [x] Crash dump 文件可归档到当前 Case `artifacts/crash/`，并写出不含本机绝对路径的 SHA-256 manifest。
 - [x] 有本地 `cases/<case_id>/` workspace 初始化能力。
 - [x] EnvironmentSnapshot 已有 JSON 输出脚本基础。
@@ -88,6 +89,7 @@
 - [x] 命令执行器已有记录命令、cwd、stdout、stderr、退出码和耗时的基础能力。
 - [x] 支持取消运行中任务；`CommandRunner` 有取消结果语义，DRAW/env/testgrid/testdiff/two-stage/patch UI 已有最小取消入口。
 - [x] 支持命令级超时；`CommandRunner` 有 `timedOut` / `timeoutMs` 结果语义，DRAW/env/testgrid/testdiff/two-stage/patch artifact 会记录超时状态。
+- [x] 底部 `Tasks` tab 已接入 `TaskHistoryPanel`，DRAW/env/Repro Pack/testgrid/testdiff/two-stage/patch 命令会登记可浏览任务历史。
 - [x] 命令输出已有接入底部控制台的基础。
 - [ ] 命令执行默认限制在 Case workspace。
 - [x] 失败时有明确错误提示的基础。

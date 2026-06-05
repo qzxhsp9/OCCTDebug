@@ -141,6 +141,45 @@ int main(int argc, char** argv)
         return 13;
     }
 
+    withInput.taskHistory = {
+        {
+            QStringLiteral("draw"),
+            QStringLiteral("DRAW repro"),
+            QStringLiteral("passed"),
+            QStringLiteral("cmd.exe"),
+            QStringLiteral("/c DRAWEXE < repro.tcl"),
+            QStringLiteral("repro"),
+            QStringLiteral("2026-06-05T00:00:02Z"),
+            QStringLiteral("2026-06-05T00:00:04Z"),
+            2000,
+            0,
+            QStringLiteral("logs/draw.stdout.log"),
+            QStringLiteral("logs/draw.stderr.log"),
+            QStringLiteral("artifacts/draw_result.json"),
+            QStringLiteral("smoke"),
+        },
+    };
+    const QJsonArray taskHistory = withInput.toJson()
+        .value(QStringLiteral("tasks")).toObject()
+        .value(QStringLiteral("history")).toArray();
+    if (taskHistory.size() != 1
+        || taskHistory.first().toObject().value(QStringLiteral("status")).toString() != QStringLiteral("passed")
+        || taskHistory.first().toObject().value(QStringLiteral("stdout")).toString() != QStringLiteral("logs/draw.stdout.log"))
+    {
+        QTextStream(stderr) << "task history was not serialized\n";
+        return 14;
+    }
+    QString taskRoundTripError;
+    const std::optional<occtdebug::CaseManifest> taskRoundTrip =
+        occtdebug::CaseManifest::fromJson(withInput.toJson(), &taskRoundTripError);
+    if (!taskRoundTrip.has_value()
+        || taskRoundTrip->taskHistory.size() != 1
+        || taskRoundTrip->taskHistory.first().artifact != QStringLiteral("artifacts/draw_result.json"))
+    {
+        QTextStream(stderr) << "task history did not round-trip: " << taskRoundTripError << "\n";
+        return 15;
+    }
+
     QTextStream(stdout) << "CASE_MANIFEST_PLAN_SMOKE_OK\n";
     return 0;
 }

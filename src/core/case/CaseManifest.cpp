@@ -322,6 +322,37 @@ ReproStatus readReproStatus(const QJsonObject& object)
     };
 }
 
+QVector<TaskRecord> readTaskRecords(const QJsonArray& array)
+{
+    QVector<TaskRecord> out;
+    out.reserve(array.size());
+    for (const QJsonValue& value : array)
+    {
+        if (!value.isObject())
+        {
+            continue;
+        }
+        const QJsonObject object = value.toObject();
+        out.push_back({
+            stringValue(object, "id"),
+            stringValue(object, "title"),
+            stringValue(object, "status"),
+            stringValue(object, "program"),
+            stringValue(object, "arguments"),
+            stringValue(object, "working_directory"),
+            stringValue(object, "started_at"),
+            stringValue(object, "finished_at"),
+            static_cast<qint64>(object.value(QStringLiteral("elapsed_ms")).toDouble(0.0)),
+            intValue(object, "exit_code"),
+            stringValue(object, "stdout"),
+            stringValue(object, "stderr"),
+            stringValue(object, "artifact"),
+            stringValue(object, "note"),
+        });
+    }
+    return out;
+}
+
 QJsonArray writeCaseSummaries(const QVector<CaseSummary>& values)
 {
     QJsonArray array;
@@ -554,6 +585,44 @@ QJsonObject writeReproStatus(const ReproStatus& value)
         {QStringLiteral("summary"), value.summary},
     };
 }
+
+QJsonArray writeTaskRecords(const QVector<TaskRecord>& values)
+{
+    QJsonArray array;
+    for (const TaskRecord& value : values)
+    {
+        QJsonObject object {
+            {QStringLiteral("id"), value.id},
+            {QStringLiteral("title"), value.title},
+            {QStringLiteral("status"), value.status},
+            {QStringLiteral("program"), value.program},
+            {QStringLiteral("arguments"), value.arguments},
+            {QStringLiteral("working_directory"), value.workingDirectory},
+            {QStringLiteral("started_at"), value.startedAt},
+            {QStringLiteral("finished_at"), value.finishedAt},
+            {QStringLiteral("elapsed_ms"), static_cast<double>(value.elapsedMs)},
+            {QStringLiteral("exit_code"), value.exitCode},
+        };
+        if (!value.stdoutLog.isEmpty())
+        {
+            object.insert(QStringLiteral("stdout"), value.stdoutLog);
+        }
+        if (!value.stderrLog.isEmpty())
+        {
+            object.insert(QStringLiteral("stderr"), value.stderrLog);
+        }
+        if (!value.artifact.isEmpty())
+        {
+            object.insert(QStringLiteral("artifact"), value.artifact);
+        }
+        if (!value.note.isEmpty())
+        {
+            object.insert(QStringLiteral("note"), value.note);
+        }
+        array.append(object);
+    }
+    return array;
+}
 } // namespace
 
 std::optional<CaseManifest> CaseManifest::fromJson(const QJsonObject& object, QString* error)
@@ -631,6 +700,7 @@ std::optional<CaseManifest> CaseManifest::fromJson(const QJsonObject& object, QS
     manifest.verificationPlan = readVerificationPlan(objectValue(verification, "testgrid_plan"));
     manifest.testdiffGenerationConfig = readTestdiffGenerationConfig(objectValue(verification, "testdiff_generation"));
 
+    manifest.taskHistory = readTaskRecords(arrayValue(objectValue(object, "tasks"), "history"));
     manifest.similarCases = readSimilarCases(arrayValue(object, "similar_cases"));
 
     const QJsonObject consoles = objectValue(object, "consoles");
@@ -741,6 +811,9 @@ QJsonObject CaseManifest::toJson() const
              {QStringLiteral("items"), writeLabelValues(verificationItems)},
              {QStringLiteral("testgrid_plan"), writeVerificationPlan(verificationPlan)},
              {QStringLiteral("testdiff_generation"), writeTestdiffGenerationConfig(testdiffGenerationConfig)},
+         }},
+        {QStringLiteral("tasks"), QJsonObject {
+             {QStringLiteral("history"), writeTaskRecords(taskHistory)},
          }},
         {QStringLiteral("similar_cases"), writeSimilarCases(similarCases)},
         {QStringLiteral("consoles"), QJsonObject {

@@ -2826,7 +2826,16 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] `workbench_presenter_smoke` 覆盖 repro 状态、geometry/evidence/verification、testdiff generation 配置、patch 状态、testgrid rows 和 workflow fallback 的同步。
 - [ ] 当前 N74 只收束 Case 保存字段映射；命令编排和任务历史仍留给 N75/N76 继续拆分。
 
-### 36.61 持续门禁
+### 36.61 N75：任务历史面板与 manifest 时间线
+
+- [x] `CaseManifest` 新增 `tasks.history`，记录 task id/title/status、命令 program/arguments、脱敏后的 working directory、开始/结束时间、耗时、退出码、Case 相对 stdout/stderr 日志、artifact 路径和备注。
+- [x] `WorkbenchMockData` 与 `CaseManifestSync` 已携带 task history，Case 加载/保存会保留命令历史。
+- [x] 新增 `workbench/TaskHistoryPanel.*`，底部新增 `Tasks` tab，只读展示最新任务、状态、耗时、退出码、artifact 和日志路径。
+- [x] DRAW、环境采集、Repro Pack、testgrid/testdiff gate/command、二阶段验证和 patch 命令已在 start/finished 处登记任务记录。
+- [x] `case_manifest_plan_smoke` 覆盖 `tasks.history` JSON 往返；`workbench_presenter_smoke` 覆盖 TaskHistoryPanel 最新任务优先展示和 Case 同步。
+- [ ] 当前 N75 只记录已执行命令时间线，不提供真正的队列调度、逐任务取消按钮、dry-run/subphase 子任务分组；这些留给 N76+。
+
+### 36.62 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。

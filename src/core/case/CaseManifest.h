@@ -104,6 +104,24 @@ struct ReproStatus
     QString summary;
 };
 
+struct TaskRecord
+{
+    QString id;
+    QString title;
+    QString status;
+    QString program;
+    QString arguments;
+    QString workingDirectory;
+    QString startedAt;
+    QString finishedAt;
+    qint64 elapsedMs = 0;
+    int exitCode = 0;
+    QString stdoutLog;
+    QString stderrLog;
+    QString artifact;
+    QString note;
+};
+
 struct SimilarCase
 {
     QString id;
@@ -164,6 +182,7 @@ struct CaseManifest
     QVector<LabelValue> verificationItems;
     VerificationPlan verificationPlan;
     TestdiffGenerationConfig testdiffGenerationConfig;
+    QVector<TaskRecord> taskHistory;
     QVector<SimilarCase> similarCases;
     QVector<TestgridRow> testgridRows;
     QVector<LabelValue> patchReviewItems;

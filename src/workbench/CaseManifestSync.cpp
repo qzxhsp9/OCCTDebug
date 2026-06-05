@@ -15,6 +15,7 @@ void CaseManifestSync::syncMutableFields(CaseManifest& manifest, const Workbench
     manifest.verificationItems = data.verificationItems;
     manifest.verificationPlan = data.verificationPlan;
     manifest.testdiffGenerationConfig = data.testdiffGenerationConfig;
+    manifest.taskHistory = data.taskHistory;
     manifest.patchReviewStatus = data.patchReviewStatus;
     manifest.patchWorktreeRoot = data.patchWorktreeRoot;
     manifest.patchApplyStatus = data.patchApplyStatus;

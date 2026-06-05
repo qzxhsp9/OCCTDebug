@@ -25,6 +25,7 @@
 #include "workbench/EvidencePanel.h"
 #include "workbench/ReportRefreshCoordinator.h"
 #include "workbench/SourcePanel.h"
+#include "workbench/TaskHistoryPanel.h"
 #include "workbench/TestdiffAdapterResultCoordinator.h"
 #include "workbench/TestgridTablePresenter.h"
 #include "workbench/TwoStageFinalResultCoordinator.h"
@@ -75,6 +76,7 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <utility>
 
 namespace
@@ -275,6 +277,7 @@ QString bottomTabIdForIndex(int index)
         QStringLiteral("draw"),
         QStringLiteral("cmake"),
         QStringLiteral("testgrid"),
+        QStringLiteral("tasks"),
     };
     return (index >= 0 && index < ids.size()) ? ids[index] : QStringLiteral("draw");
 }
@@ -289,6 +292,10 @@ int bottomTabIndexForId(const QString& id)
     if (value == QStringLiteral("testgrid") || value.contains(QStringLiteral("testgrid")))
     {
         return 2;
+    }
+    if (value == QStringLiteral("tasks") || value.contains(QStringLiteral("task")))
+    {
+        return 3;
     }
     return 0;
 }
@@ -526,6 +533,11 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                     .arg(result.exitCode)
                     .arg(result.elapsedMs));
         }
+        recordTaskFinished(QStringLiteral("draw"),
+                           result,
+                           QStringLiteral("artifacts/draw_result.json"),
+                           QStringLiteral("logs/draw.stdout.log"),
+                           QStringLiteral("logs/draw.stderr.log"));
         persistDrawRunResult(result);
     });
     connect(m_envRunner, &occtdebug::CommandRunner::outputReceived, this, [this](const QString& text) {
@@ -550,6 +562,12 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                     .arg(result.exitCode)
                     .arg(result.elapsedMs));
         }
+        recordTaskFinished(QStringLiteral("env"),
+                           result,
+                           QStringLiteral("artifacts/env_capture_result.json"),
+                           QStringLiteral("logs/env_capture.stdout.log"),
+                           QStringLiteral("logs/env_capture.stderr.log"),
+                           QStringLiteral("snapshot=env/env_snapshot.json"));
         persistEnvironmentCaptureResult(result);
     });
     connect(m_packRunner, &occtdebug::CommandRunner::outputReceived, this, [this](const QString& text) {
@@ -574,6 +592,11 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                     .arg(result.exitCode)
                     .arg(result.elapsedMs));
         }
+        recordTaskFinished(QStringLiteral("repro_pack"),
+                           result,
+                           QStringLiteral("artifacts/repro_pack_result.json"),
+                           QStringLiteral("logs/repro_pack.stdout.log"),
+                           QStringLiteral("logs/repro_pack.stderr.log"));
         persistReproPackResult(result);
     });
     connect(m_testgridRunner, &occtdebug::CommandRunner::outputReceived, this, [this](const QString& text) {
@@ -591,13 +614,71 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
         }
     });
     connect(m_testgridRunner, &occtdebug::CommandRunner::finished, this, [this](const occtdebug::CommandResult& result) {
+        const auto finishCurrentTask = [this, &result]() {
+            QString taskId = QStringLiteral("testgrid.draw_gate");
+            QString artifact = QStringLiteral("artifacts/testgrid_result.json");
+            QString stdoutLog = QStringLiteral("logs/testgrid_gate.stdout.log");
+            QString stderrLog = QStringLiteral("logs/testgrid_gate.stderr.log");
+            switch (m_testgridRunPhase)
+            {
+            case TestgridRunPhase::DrawGate:
+                break;
+            case TestgridRunPhase::TestgridCommand:
+                taskId = QStringLiteral("testgrid.command");
+                stdoutLog = QStringLiteral("logs/testgrid.stdout.log");
+                stderrLog = QStringLiteral("logs/testgrid.stderr.log");
+                break;
+            case TestgridRunPhase::TestdiffGate:
+                taskId = QStringLiteral("testdiff.draw_gate");
+                artifact = QStringLiteral("artifacts/testdiff_adapter_result.json");
+                break;
+            case TestgridRunPhase::TestdiffCommand:
+                taskId = QStringLiteral("testdiff.command");
+                artifact = QStringLiteral("artifacts/testdiff_adapter_result.json");
+                stdoutLog = QStringLiteral("logs/testdiff_runner.stdout.log");
+                stderrLog = QStringLiteral("logs/testdiff_runner.stderr.log");
+                break;
+            case TestgridRunPhase::TwoStageBeforeGate:
+            case TestgridRunPhase::TwoStageAfterGate:
+            {
+                const QString phase = m_testgridRunPhase == TestgridRunPhase::TwoStageBeforeGate
+                    ? QStringLiteral("before")
+                    : QStringLiteral("after");
+                taskId = QStringLiteral("two_stage.%1.draw_gate").arg(phase);
+                artifact = QStringLiteral("artifacts/testgrid_%1_result.json").arg(phase);
+                stdoutLog = QStringLiteral("logs/testgrid_%1_gate.stdout.log").arg(phase);
+                stderrLog = QStringLiteral("logs/testgrid_%1_gate.stderr.log").arg(phase);
+                break;
+            }
+            case TestgridRunPhase::TwoStageBeforeCommand:
+            case TestgridRunPhase::TwoStageAfterCommand:
+            {
+                const QString phase = m_testgridRunPhase == TestgridRunPhase::TwoStageBeforeCommand
+                    ? QStringLiteral("before")
+                    : QStringLiteral("after");
+                taskId = QStringLiteral("two_stage.%1.command").arg(phase);
+                artifact = QStringLiteral("artifacts/testgrid_%1_result.json").arg(phase);
+                stdoutLog = QStringLiteral("logs/testgrid_%1.stdout.log").arg(phase);
+                stderrLog = QStringLiteral("logs/testgrid_%1.stderr.log").arg(phase);
+                break;
+            }
+            case TestgridRunPhase::TwoStagePatchApply:
+            case TestgridRunPhase::TwoStagePatchUndo:
+            case TestgridRunPhase::Idle:
+                break;
+            }
+            recordTaskFinished(taskId, result, artifact, stdoutLog, stderrLog);
+        };
+
         if (result.canceled)
         {
             if (m_cmakeConsole != nullptr)
             {
                 m_cmakeConsole->append(QStringLiteral("[testgrid] canceled elapsed=%1ms").arg(result.elapsedMs));
             }
+            finishCurrentTask();
             m_testgridRunPhase = TestgridRunPhase::Idle;
+            saveCurrentCaseManifest();
             return;
         }
 
@@ -610,6 +691,7 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                         .arg(result.exitCode)
                         .arg(result.elapsedMs));
             }
+            finishCurrentTask();
             handleTestgridGateFinished(result);
             return;
         }
@@ -623,6 +705,7 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                         .arg(result.exitCode)
                         .arg(result.elapsedMs));
             }
+            finishCurrentTask();
             handleTestgridCommandFinished(result);
             return;
         }
@@ -636,6 +719,7 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                         .arg(result.exitCode)
                         .arg(result.elapsedMs));
             }
+            finishCurrentTask();
             handleTestdiffGateFinished(result);
             return;
         }
@@ -649,6 +733,7 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                         .arg(result.exitCode)
                         .arg(result.elapsedMs));
             }
+            finishCurrentTask();
             handleTestdiffCommandFinished(result);
             return;
         }
@@ -663,6 +748,7 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                         .arg(result.exitCode)
                         .arg(result.elapsedMs));
             }
+            finishCurrentTask();
             handleTwoStageGateFinished(result);
             return;
         }
@@ -677,6 +763,7 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
                         .arg(result.exitCode)
                         .arg(result.elapsedMs));
             }
+            finishCurrentTask();
             handleTwoStageCommandFinished(result);
             return;
         }
@@ -701,18 +788,42 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
         }
     });
     connect(m_patchRunner, &occtdebug::CommandRunner::finished, this, [this](const occtdebug::CommandResult& result) {
+        const auto finishPatchTask = [this, &result]() {
+            QString id = QStringLiteral("patch.apply");
+            QString artifact = QStringLiteral("artifacts/patch_apply_result.json");
+            QString stdoutLog = QStringLiteral("logs/patch_apply.stdout.log");
+            QString stderrLog = QStringLiteral("logs/patch_apply.stderr.log");
+            if (m_patchRunMode == PatchRunMode::Generate)
+            {
+                id = QStringLiteral("patch.generate");
+                artifact = QStringLiteral("artifacts/patch_generate_result.json");
+                stdoutLog = QStringLiteral("logs/patch_generate.stdout.log");
+                stderrLog = QStringLiteral("logs/patch_generate.stderr.log");
+            }
+            else if (m_patchRunMode == PatchRunMode::Undo)
+            {
+                id = QStringLiteral("patch.undo");
+                artifact = QStringLiteral("artifacts/patch_undo_result.json");
+                stdoutLog = QStringLiteral("logs/patch_undo.stdout.log");
+                stderrLog = QStringLiteral("logs/patch_undo.stderr.log");
+            }
+            recordTaskFinished(id, result, artifact, stdoutLog, stderrLog);
+        };
+
         if (result.canceled)
         {
             if (m_cmakeConsole != nullptr)
             {
                 m_cmakeConsole->append(QStringLiteral("[patch] canceled elapsed=%1ms").arg(result.elapsedMs));
             }
+            finishPatchTask();
             m_patchRunMode = PatchRunMode::None;
             if (m_testgridRunPhase == TestgridRunPhase::TwoStagePatchApply
                 || m_testgridRunPhase == TestgridRunPhase::TwoStagePatchUndo)
             {
                 m_testgridRunPhase = TestgridRunPhase::Idle;
             }
+            saveCurrentCaseManifest();
             return;
         }
 
@@ -737,17 +848,20 @@ WorkbenchWindow::WorkbenchWindow(const occtdebug::WorkbenchMockData& initialData
         if (m_testgridRunPhase == TestgridRunPhase::TwoStagePatchApply
             || m_testgridRunPhase == TestgridRunPhase::TwoStagePatchUndo)
         {
+            finishPatchTask();
             handleTwoStagePatchFinished(result);
             return;
         }
 
         if (m_patchRunMode == PatchRunMode::Generate)
         {
+            finishPatchTask();
             persistPatchCandidateGenerationResult(result);
             m_patchRunMode = PatchRunMode::None;
             return;
         }
 
+        finishPatchTask();
         persistPatchCommandResult(result);
         m_patchRunMode = PatchRunMode::None;
     });
@@ -955,6 +1069,9 @@ QWidget* WorkbenchWindow::createBottomConsole()
     tabs->addTab(m_drawConsole, s("DRAW Console"));
     tabs->addTab(m_cmakeConsole, s("PowerShell / CMake"));
     tabs->addTab(testgridTab, s("testgrid Results"));
+    m_taskHistoryPanel = new occtdebug::TaskHistoryPanel;
+    m_taskHistoryPanel->setTasks(m_data.taskHistory);
+    tabs->addTab(m_taskHistoryPanel, QStringLiteral("Tasks"));
     tabs->setCurrentIndex(bottomTabIndexForId(m_data.manifest.workspaceLayout.activeBottomTab));
     return tabs;
 }
@@ -2732,6 +2849,7 @@ void WorkbenchWindow::applyWorkbenchData(occtdebug::WorkbenchMockData nextData)
     {
         m_bottomTabs->setFixedHeight(m_data.manifest.workspaceLayout.bottomHeight);
     }
+    refreshTaskHistoryPanel();
     if (m_mainSplitter != nullptr)
     {
         m_mainSplitter->setSizes({
@@ -3244,10 +3362,20 @@ void WorkbenchWindow::runCurrentDrawScript()
     }
 
     QString error;
-    if (!m_drawRunner->start(request, &error) && m_drawConsole != nullptr)
+    if (!m_drawRunner->start(request, &error))
     {
-        m_drawConsole->append(QStringLiteral("[DRAW] failed to start: %1").arg(error));
+        if (m_drawConsole != nullptr)
+        {
+            m_drawConsole->append(QStringLiteral("[DRAW] failed to start: %1").arg(error));
+        }
+        return;
     }
+    recordTaskStarted(QStringLiteral("draw"),
+                      QStringLiteral("DRAW repro"),
+                      request,
+                      QStringLiteral("artifacts/draw_result.json"),
+                      QStringLiteral("logs/draw.stdout.log"),
+                      QStringLiteral("logs/draw.stderr.log"));
 }
 
 void WorkbenchWindow::generateCppReproTemplate()
@@ -3325,6 +3453,88 @@ void WorkbenchWindow::cancelRunner(occtdebug::CommandRunner* runner, const QStri
     runner->cancel();
 }
 
+void WorkbenchWindow::recordTaskStarted(const QString& id,
+                                        const QString& title,
+                                        const occtdebug::CommandRequest& request,
+                                        const QString& artifact,
+                                        const QString& stdoutLog,
+                                        const QString& stderrLog)
+{
+    occtdebug::TaskRecord record;
+    record.id = id;
+    record.title = title;
+    record.status = QStringLiteral("running");
+    record.program = QFileInfo(request.program).fileName();
+    record.arguments = request.arguments.join(QLatin1Char(' '));
+    record.workingDirectory = caseRelativeOrFileName(m_data.workspaceRoot, request.workingDirectory);
+    record.startedAt = currentUtcIsoTimestamp();
+    record.artifact = artifact;
+    record.stdoutLog = stdoutLog;
+    record.stderrLog = stderrLog;
+
+    m_data.taskHistory.push_back(record);
+    if (m_data.taskHistory.size() > 200)
+    {
+        m_data.taskHistory.erase(m_data.taskHistory.begin(), m_data.taskHistory.begin() + (m_data.taskHistory.size() - 200));
+    }
+    m_data.manifest.taskHistory = m_data.taskHistory;
+    refreshTaskHistoryPanel();
+}
+
+void WorkbenchWindow::recordTaskFinished(const QString& id,
+                                         const occtdebug::CommandResult& result,
+                                         const QString& artifact,
+                                         const QString& stdoutLog,
+                                         const QString& stderrLog,
+                                         const QString& note)
+{
+    auto match = std::find_if(m_data.taskHistory.rbegin(), m_data.taskHistory.rend(), [&](const occtdebug::TaskRecord& task) {
+        return task.id == id && task.status == QStringLiteral("running");
+    });
+
+    if (match == m_data.taskHistory.rend())
+    {
+        occtdebug::TaskRecord record;
+        record.id = id;
+        record.title = id;
+        record.startedAt = currentUtcIsoTimestamp();
+        m_data.taskHistory.push_back(record);
+        match = m_data.taskHistory.rbegin();
+    }
+
+    match->status = commandOutcomeText(result);
+    match->program = QFileInfo(result.program).fileName();
+    match->arguments = result.arguments.join(QLatin1Char(' '));
+    match->workingDirectory = caseRelativeOrFileName(m_data.workspaceRoot, result.workingDirectory);
+    match->finishedAt = currentUtcIsoTimestamp();
+    match->elapsedMs = result.elapsedMs;
+    match->exitCode = result.exitCode;
+    if (!artifact.isEmpty())
+    {
+        match->artifact = artifact;
+    }
+    if (!stdoutLog.isEmpty())
+    {
+        match->stdoutLog = stdoutLog;
+    }
+    if (!stderrLog.isEmpty())
+    {
+        match->stderrLog = stderrLog;
+    }
+    match->note = note;
+
+    m_data.manifest.taskHistory = m_data.taskHistory;
+    refreshTaskHistoryPanel();
+}
+
+void WorkbenchWindow::refreshTaskHistoryPanel()
+{
+    if (m_taskHistoryPanel != nullptr)
+    {
+        m_taskHistoryPanel->setTasks(m_data.taskHistory);
+    }
+}
+
 void WorkbenchWindow::runEnvironmentCapture()
 {
     if (m_envRunner == nullptr || m_envRunner->isRunning())
@@ -3385,10 +3595,20 @@ void WorkbenchWindow::runEnvironmentCapture()
     }
 
     QString error;
-    if (!m_envRunner->start(request, &error) && m_cmakeConsole != nullptr)
+    if (!m_envRunner->start(request, &error))
     {
-        m_cmakeConsole->append(QStringLiteral("[env] failed to start: %1").arg(error));
+        if (m_cmakeConsole != nullptr)
+        {
+            m_cmakeConsole->append(QStringLiteral("[env] failed to start: %1").arg(error));
+        }
+        return;
     }
+    recordTaskStarted(QStringLiteral("env"),
+                      QStringLiteral("Environment capture"),
+                      request,
+                      QStringLiteral("artifacts/env_capture_result.json"),
+                      QStringLiteral("logs/env_capture.stdout.log"),
+                      QStringLiteral("logs/env_capture.stderr.log"));
 }
 
 void WorkbenchWindow::runTestgridVerification()
@@ -3558,6 +3778,26 @@ bool WorkbenchWindow::startTestgridDrawGate(TestgridRunPhase phase, const QStrin
         m_testgridRunPhase = TestgridRunPhase::Idle;
         return false;
     }
+    QString taskId = QStringLiteral("testgrid.draw_gate");
+    QString taskTitle = QStringLiteral("testgrid draw_smoke gate");
+    QString artifact = QStringLiteral("artifacts/testgrid_result.json");
+    QString stdoutLog = QStringLiteral("logs/testgrid_gate.stdout.log");
+    QString stderrLog = QStringLiteral("logs/testgrid_gate.stderr.log");
+    if (phase == TestgridRunPhase::TestdiffGate)
+    {
+        taskId = QStringLiteral("testdiff.draw_gate");
+        taskTitle = QStringLiteral("testdiff draw_smoke gate");
+        artifact = QStringLiteral("artifacts/testdiff_adapter_result.json");
+    }
+    else if (phase == TestgridRunPhase::TwoStageBeforeGate || phase == TestgridRunPhase::TwoStageAfterGate)
+    {
+        taskId = QStringLiteral("two_stage.%1.draw_gate").arg(label);
+        taskTitle = QStringLiteral("two-stage %1 draw_smoke gate").arg(label);
+        artifact = QStringLiteral("artifacts/testgrid_%1_result.json").arg(label);
+        stdoutLog = QStringLiteral("logs/testgrid_%1_gate.stdout.log").arg(label);
+        stderrLog = QStringLiteral("logs/testgrid_%1_gate.stderr.log").arg(label);
+    }
+    recordTaskStarted(taskId, taskTitle, request, artifact, stdoutLog, stderrLog);
     return true;
 }
 
@@ -3626,6 +3866,20 @@ bool WorkbenchWindow::startConfiguredTestgridCommand(TestgridRunPhase phase, con
         m_testgridRunPhase = TestgridRunPhase::Idle;
         return false;
     }
+    QString taskId = QStringLiteral("testgrid.command");
+    QString taskTitle = QStringLiteral("configured testgrid");
+    QString artifact = QStringLiteral("artifacts/testgrid_result.json");
+    QString stdoutLog = QStringLiteral("logs/testgrid.stdout.log");
+    QString stderrLog = QStringLiteral("logs/testgrid.stderr.log");
+    if (phase == TestgridRunPhase::TwoStageBeforeCommand || phase == TestgridRunPhase::TwoStageAfterCommand)
+    {
+        taskId = QStringLiteral("two_stage.%1.command").arg(label);
+        taskTitle = QStringLiteral("two-stage %1 testgrid").arg(label);
+        artifact = QStringLiteral("artifacts/testgrid_%1_result.json").arg(label);
+        stdoutLog = QStringLiteral("logs/testgrid_%1.stdout.log").arg(label);
+        stderrLog = QStringLiteral("logs/testgrid_%1.stderr.log").arg(label);
+    }
+    recordTaskStarted(taskId, taskTitle, request, artifact, stdoutLog, stderrLog);
     return true;
 }
 
@@ -3665,6 +3919,12 @@ bool WorkbenchWindow::startConfiguredTestdiffCommand(QString* error)
         m_testgridRunPhase = TestgridRunPhase::Idle;
         return false;
     }
+    recordTaskStarted(QStringLiteral("testdiff.command"),
+                      QStringLiteral("configured testdiff"),
+                      request,
+                      QStringLiteral("artifacts/testdiff_adapter_result.json"),
+                      QStringLiteral("logs/testdiff_runner.stdout.log"),
+                      QStringLiteral("logs/testdiff_runner.stderr.log"));
     return true;
 }
 
@@ -4207,6 +4467,13 @@ bool WorkbenchWindow::startTwoStagePatchCommand(PatchRunMode mode, QString* erro
         m_testgridRunPhase = TestgridRunPhase::Idle;
         return false;
     }
+    const QString taskId = mode == PatchRunMode::Undo ? QStringLiteral("patch.undo") : QStringLiteral("patch.apply");
+    recordTaskStarted(taskId,
+                      QStringLiteral("Two-stage patch %1").arg(action),
+                      request,
+                      QStringLiteral("artifacts/patch_%1_result.json").arg(action),
+                      QStringLiteral("logs/patch_%1.stdout.log").arg(action),
+                      QStringLiteral("logs/patch_%1.stderr.log").arg(action));
     return true;
 }
 
@@ -4398,10 +4665,20 @@ void WorkbenchWindow::exportReproPack()
     }
 
     QString error;
-    if (!m_packRunner->start(request, &error) && m_cmakeConsole != nullptr)
+    if (!m_packRunner->start(request, &error))
     {
-        m_cmakeConsole->append(QStringLiteral("[pack] failed to start: %1").arg(error));
+        if (m_cmakeConsole != nullptr)
+        {
+            m_cmakeConsole->append(QStringLiteral("[pack] failed to start: %1").arg(error));
+        }
+        return;
     }
+    recordTaskStarted(QStringLiteral("repro_pack"),
+                      QStringLiteral("Export Repro Pack"),
+                      request,
+                      QStringLiteral("artifacts/repro_pack_result.json"),
+                      QStringLiteral("logs/repro_pack.stdout.log"),
+                      QStringLiteral("logs/repro_pack.stderr.log"));
 }
 
 void WorkbenchWindow::persistReproPackResult(const occtdebug::CommandResult& result)
@@ -5000,6 +5277,12 @@ void WorkbenchWindow::generatePatchCandidateFromWorktree()
         QMessageBox::warning(this, QStringLiteral("Generate patch candidate"), QStringLiteral("failed to start git diff: %1").arg(error));
         return;
     }
+    recordTaskStarted(QStringLiteral("patch.generate"),
+                      QStringLiteral("Generate candidate patch"),
+                      request,
+                      QStringLiteral("artifacts/patch_generate_result.json"),
+                      QStringLiteral("logs/patch_generate.stdout.log"),
+                      QStringLiteral("logs/patch_generate.stderr.log"));
 
     if (m_cmakeConsole != nullptr)
     {
@@ -5207,6 +5490,13 @@ void WorkbenchWindow::runPatchCommand(PatchRunMode mode)
         saveCurrentCaseManifest();
         return;
     }
+    const QString taskId = mode == PatchRunMode::Undo ? QStringLiteral("patch.undo") : QStringLiteral("patch.apply");
+    recordTaskStarted(taskId,
+                      QStringLiteral("Patch %1").arg(action),
+                      request,
+                      QStringLiteral("artifacts/patch_%1_result.json").arg(action),
+                      QStringLiteral("logs/patch_%1.stdout.log").arg(action),
+                      QStringLiteral("logs/patch_%1.stderr.log").arg(action));
 
     if (m_cmakeConsole != nullptr)
     {
