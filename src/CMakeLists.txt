@@ -83,6 +83,8 @@ set(OCCTDEBUG_SOURCES
     core/repro/ReproStatusEvaluator.h
     core/runner/CommandRunner.cpp
     core/runner/CommandRunner.h
+    core/runner/CommandTaskQueue.cpp
+    core/runner/CommandTaskQueue.h
     core/source/SourceIndex.cpp
     core/source/SourceIndex.h
     core/verify/VerificationResultParser.cpp
@@ -549,6 +551,36 @@ if(BUILD_TESTING)
     set_tests_properties(command_runner_timeout_smoke PROPERTIES
         LABELS "runner;timeout;smoke"
         PASS_REGULAR_EXPRESSION "COMMAND_RUNNER_TIMEOUT_SMOKE_OK"
+    )
+
+    add_executable(OCCTDebugCommandTaskQueueSmoke
+        "${CMAKE_SOURCE_DIR}/tests/command_task_queue_smoke.cpp"
+        core/runner/CommandRunner.cpp
+        core/runner/CommandRunner.h
+        core/runner/CommandTaskQueue.cpp
+        core/runner/CommandTaskQueue.h
+    )
+    target_include_directories(OCCTDebugCommandTaskQueueSmoke PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}"
+    )
+    target_link_libraries(OCCTDebugCommandTaskQueueSmoke PRIVATE Qt6::Core)
+    target_compile_definitions(OCCTDebugCommandTaskQueueSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+    )
+    if(MSVC)
+        target_compile_options(OCCTDebugCommandTaskQueueSmoke PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(OCCTDebugCommandTaskQueueSmoke PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_test(
+        NAME command_task_queue_smoke
+        COMMAND $<TARGET_FILE:OCCTDebugCommandTaskQueueSmoke>
+    )
+    set_tests_properties(command_task_queue_smoke PROPERTIES
+        LABELS "runner;queue;cancel;dry-run;smoke"
+        PASS_REGULAR_EXPRESSION "COMMAND_TASK_QUEUE_SMOKE_OK"
     )
 
     add_executable(OCCTDebugVerificationResultParserSmoke

@@ -2851,7 +2851,15 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] `workbench_presenter_smoke` 覆盖 coordinator start/finish、timeout 状态、manifest 同步和历史裁剪。
 - [ ] 当前 N77 不实现真正任务队列、逐任务取消入口或 dry-run/subphase 子任务分组；这些留给 N78。
 
-### 36.64 持续门禁
+### 36.64 N78：CommandTaskQueue 顺序队列内核
+
+- [x] 新增 `core/runner/CommandTaskQueue.*`，在 `CommandRunner` 之上提供顺序任务队列，任务元数据包含 id/title/phase/subphase/dryRun 与 `CommandRequest`。
+- [x] 队列支持 `taskStarted`、`taskFinished`、`finished` 信号，可保留每个子任务的 `CommandResult` 并按顺序返回。
+- [x] 支持 `cancelCurrent()` 和 `cancelAll()`；取消整个队列时，当前任务走 `CommandRunner::cancel()`，尚未启动的任务会生成 canceled/skipped 结果，避免误执行后续阶段。
+- [x] 新增 `command_task_queue_smoke`，覆盖顺序执行、dry-run/subphase 元数据保留、取消当前任务和跳过剩余队列。
+- [ ] 当前 N78 先完成队列内核；DRAW/testgrid/testdiff/two-stage/patch UI 仍需后续逐步迁移到该队列，并将队列结果接入 `TaskHistoryCoordinator`。
+
+### 36.65 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。
