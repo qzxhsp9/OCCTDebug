@@ -122,6 +122,7 @@
 - [x] testdiff 真实生成器边界已固化为 `TestdiffGenerationPolicy`，`artifact_analysis.generation_policy` 会记录候选输入、禁用状态、阻塞原因和后续契约，当前不生成伪 artifact。
 - [x] testdiff 真实生成器 opt-in 契约已固化为 `TestdiffGenerationContract`，定义 manifest 字段、Case 相对输出根、sidecar 命名、三类生成器输出模式和隐私边界。
 - [x] testdiff 真实生成器配置已进入 `CaseManifest.verification.testdiff_generation`，包含 opt-in 列表、图片/属性容差、性能回归阈值和失败报告路径；策略会输出有效配置与 `failure_report` 状态，但仍不启用生成算法。
+- [x] Case 保存字段同步已抽到 `CaseManifestSync`，`WorkbenchWindow` 保存时只负责读取当前编辑器/UI layout，并通过 helper 回填可变 manifest 字段。
 - [x] testdiff adapter runner 日志、summary、adapter result/manifest 和兼容 `testgrid_result.json` 写入已抽到 `TestdiffAdapterResultWriter`。
 - [ ] OCCT Viewer 尚需更强的跨拓扑重建永久命名，当前 compare artifact 生成仍基于已落盘 topology signature 和启发式局部几何匹配。
 - [x] EvidenceBundle/VerificationReport 实际写出已抽成 `ReportRefreshCoordinator`，并由 `report_refresh_coordinator_smoke` 覆盖。

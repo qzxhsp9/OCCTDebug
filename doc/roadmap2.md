@@ -2818,7 +2818,15 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] 新增 `testdiff_generation_failure_report_smoke`，并扩展 `testdiff_generation_contract_smoke`、`testdiff_generation_policy_smoke`、`case_manifest_plan_smoke` 覆盖 N73 契约。
 - [ ] 当前仍未实现图片像素 diff、属性结构 diff 或性能趋势 diff 算法；下一步应先把真实生成器输出 sidecar 与 failure report writer 固化，再启用具体算法。
 
-### 36.60 持续门禁
+### 36.60 N74：Case manifest 保存同步 helper
+
+- [x] 新增 `workbench/CaseManifestSync.*`，把 `WorkbenchWindow::saveCurrentCaseManifest()` 中的可变 Case 字段回填逻辑抽成纯 helper。
+- [x] `WorkbenchWindow` 保存前只负责读取当前 repro 编辑器和 UI layout，再调用 `CaseManifestSync::syncMutableFields()` 回填 manifest。
+- [x] `WorkbenchMockData` 新增 `testdiffGenerationConfig`，从 Case 加载时保留 `verification.testdiff_generation`，保存同步时写回 manifest。
+- [x] `workbench_presenter_smoke` 覆盖 repro 状态、geometry/evidence/verification、testdiff generation 配置、patch 状态、testgrid rows 和 workflow fallback 的同步。
+- [ ] 当前 N74 只收束 Case 保存字段映射；命令编排和任务历史仍留给 N75/N76 继续拆分。
+
+### 36.61 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。

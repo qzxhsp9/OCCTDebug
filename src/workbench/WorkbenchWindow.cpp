@@ -18,6 +18,7 @@
 #include "core/verify/TwoStageFinalResultWriter.h"
 #include "core/verify/TwoStagePhaseResultWriter.h"
 #include "core/verify/TwoStageVerificationResultWriter.h"
+#include "workbench/CaseManifestSync.h"
 #include "workbench/CasePanel.h"
 #include "workbench/DiffPanel.h"
 #include "workbench/EvidenceCoordinator.h"
@@ -3106,35 +3107,8 @@ bool WorkbenchWindow::saveCurrentCaseManifest()
     if (m_reproScriptEdit != nullptr)
     {
         m_data.reproScript = m_reproScriptEdit->toPlainText();
-        m_data.manifest.reproScript = m_data.reproScript;
     }
-    m_data.manifest.reproStatus = m_data.reproStatus;
-    m_data.manifest.environmentSummary = m_data.environmentSummary;
-    m_data.manifest.geometrySummary = m_data.geometrySummary;
-    m_data.manifest.geometryChecks = m_data.geometryChecks;
-    m_data.manifest.evidenceItems = m_data.evidenceItems;
-    m_data.manifest.verificationItems = m_data.verificationItems;
-    m_data.manifest.verificationPlan = m_data.verificationPlan;
-    m_data.manifest.patchReviewStatus = m_data.patchReviewStatus;
-    m_data.manifest.patchWorktreeRoot = m_data.patchWorktreeRoot;
-    m_data.manifest.patchApplyStatus = m_data.patchApplyStatus;
-    m_data.manifest.patchApplyLog = m_data.patchApplyLog;
-    m_data.manifest.patchSignoffStatus = m_data.patchSignoffStatus;
-    m_data.manifest.patchSignoffNote = m_data.patchSignoffNote;
-    m_data.manifest.patchReviewItems = m_data.patchReviewItems;
-    m_data.manifest.testgridRows = m_data.testgridRows;
-    if (m_data.manifest.workflowState.steps.isEmpty())
-    {
-        m_data.manifest.workflowState.steps = m_data.workflowSteps;
-    }
-    if (m_data.manifest.workflowSteps.isEmpty())
-    {
-        m_data.manifest.workflowSteps = m_data.manifest.workflowState.steps;
-    }
-    if (m_data.manifest.workflowState.activeStepId.isEmpty() && !m_data.manifest.workflowState.steps.isEmpty())
-    {
-        m_data.manifest.workflowState.activeStepId = m_data.manifest.workflowState.steps.first().id;
-    }
+    occtdebug::CaseManifestSync::syncMutableFields(m_data.manifest, m_data);
     if (m_bottomTabs != nullptr)
     {
         m_data.manifest.workspaceLayout.bottomHeight = m_bottomTabs->height();

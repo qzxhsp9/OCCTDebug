@@ -192,6 +192,7 @@ WorkbenchMockData createWorkbenchDataFromCase(const CaseManifest& manifest)
     data.evidenceItems = manifest.evidenceItems;
     data.verificationItems = manifest.verificationItems;
     data.verificationPlan = manifest.verificationPlan;
+    data.testdiffGenerationConfig = manifest.testdiffGenerationConfig;
     data.similarCases = manifest.similarCases;
     data.testgridRows = manifest.testgridRows;
     data.patchReviewItems = manifest.patchReviewItems;

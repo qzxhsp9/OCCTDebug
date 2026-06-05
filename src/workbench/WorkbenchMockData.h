@@ -39,6 +39,7 @@ struct WorkbenchMockData
     QVector<EvidenceRecord> evidenceItems;
     QVector<LabelValue> verificationItems;
     VerificationPlan verificationPlan;
+    TestdiffGenerationConfig testdiffGenerationConfig;
     QVector<SimilarCase> similarCases;
     QVector<TestgridRow> testgridRows;
     QVector<LabelValue> patchReviewItems;

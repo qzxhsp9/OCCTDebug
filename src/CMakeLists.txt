@@ -119,6 +119,8 @@ set(OCCTDEBUG_SOURCES
     core/verify/TwoStagePhaseResultWriter.h
     core/verify/TwoStageVerificationResultWriter.cpp
     core/verify/TwoStageVerificationResultWriter.h
+    workbench/CaseManifestSync.cpp
+    workbench/CaseManifestSync.h
     workbench/CasePanel.cpp
     workbench/CasePanel.h
     workbench/DiffArtifactsPresenter.cpp
@@ -573,6 +575,8 @@ if(BUILD_TESTING)
 
     add_executable(OCCTDebugWorkbenchPresenterSmoke
         "${CMAKE_SOURCE_DIR}/tests/workbench_presenter_smoke.cpp"
+        workbench/CaseManifestSync.cpp
+        workbench/CaseManifestSync.h
         workbench/DiffArtifactsPresenter.cpp
         workbench/DiffArtifactsPresenter.h
         workbench/DiffPanel.cpp

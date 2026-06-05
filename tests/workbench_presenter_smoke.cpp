@@ -1,3 +1,4 @@
+#include "workbench/CaseManifestSync.h"
 #include "workbench/DiffArtifactsPresenter.h"
 #include "workbench/DiffPanel.h"
 #include "workbench/EvidenceCoordinator.h"
@@ -34,6 +35,45 @@ int main(int argc, char** argv)
         || data.evidenceItems.first().geometryObject != QStringLiteral("E1"))
     {
         QTextStream(stderr) << "evidence coordinator did not sync data and manifest\n";
+        return 1;
+    }
+
+    occtdebug::WorkbenchMockData syncData;
+    syncData.reproScript = QStringLiteral("pload MODELING");
+    syncData.reproStatus.overall = QStringLiteral("reproduced");
+    syncData.environmentSummary = QStringLiteral("env captured");
+    syncData.geometrySummary = QStringLiteral("shape loaded");
+    syncData.geometryChecks = {{QStringLiteral("checkshape"), QStringLiteral("valid"), QStringLiteral("ok")}};
+    syncData.evidenceItems = {evidence};
+    syncData.verificationItems = {{QStringLiteral("draw"), QStringLiteral("passed")}};
+    syncData.verificationPlan.testdiffArguments = QStringLiteral("--case {case}");
+    syncData.testdiffGenerationConfig.enabledGenerators = {QStringLiteral("image_pixel_diff")};
+    syncData.testdiffGenerationConfig.imagePixelTolerance = 1.0;
+    syncData.patchReviewStatus = QStringLiteral("approved");
+    syncData.patchWorktreeRoot = QStringLiteral("occt-worktree");
+    syncData.patchApplyStatus = QStringLiteral("apply passed");
+    syncData.patchApplyLog = QStringLiteral("patch log");
+    syncData.patchSignoffStatus = QStringLiteral("signed off");
+    syncData.patchSignoffNote = QStringLiteral("ready");
+    syncData.patchReviewItems = {{QStringLiteral("risk"), QStringLiteral("low")}};
+    syncData.testgridRows = {{QStringLiteral("bugs modalg_1"), QStringLiteral("1"), QStringLiteral("1"), QStringLiteral("0"), QStringLiteral("100%")}};
+    syncData.workflowSteps = {{QStringLiteral("input"), QStringLiteral("1"), QStringLiteral("Input"), QStringLiteral("done"), QStringLiteral("ok")}};
+
+    occtdebug::CaseManifest syncedManifest;
+    occtdebug::CaseManifestSync::syncMutableFields(syncedManifest, syncData);
+    if (syncedManifest.reproScript != syncData.reproScript
+        || syncedManifest.reproStatus.overall != QStringLiteral("reproduced")
+        || syncedManifest.geometryChecks.size() != 1
+        || syncedManifest.evidenceItems.size() != 1
+        || syncedManifest.verificationPlan.testdiffArguments != QStringLiteral("--case {case}")
+        || syncedManifest.testdiffGenerationConfig.enabledGenerators.size() != 1
+        || syncedManifest.patchReviewStatus != QStringLiteral("approved")
+        || syncedManifest.patchSignoffStatus != QStringLiteral("signed off")
+        || syncedManifest.testgridRows.size() != 1
+        || syncedManifest.workflowState.activeStepId != QStringLiteral("input")
+        || syncedManifest.workflowSteps.size() != 1)
+    {
+        QTextStream(stderr) << "case manifest sync did not copy mutable workbench fields\n";
         return 1;
     }
 
