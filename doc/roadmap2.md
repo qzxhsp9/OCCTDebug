@@ -2833,7 +2833,7 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] 新增 `workbench/TaskHistoryPanel.*`，底部新增 `Tasks` tab，只读展示最新任务、状态、耗时、退出码、artifact 和日志路径。
 - [x] DRAW、环境采集、Repro Pack、testgrid/testdiff gate/command、二阶段验证和 patch 命令已在 start/finished 处登记任务记录。
 - [x] `case_manifest_plan_smoke` 覆盖 `tasks.history` JSON 往返；`workbench_presenter_smoke` 覆盖 TaskHistoryPanel 最新任务优先展示和 Case 同步。
-- [ ] 当前 N75 只记录已执行命令时间线，不提供真正的队列调度、逐任务取消按钮、dry-run/subphase 子任务分组；这些留给 N76+。
+- [ ] 当前 N75 只记录已执行命令时间线，不提供真正的队列调度、逐任务取消按钮、dry-run/subphase 子任务分组；这些留给 N78+。
 
 ### 36.62 N76：testdiff generation sidecar / failure report writer
 
@@ -2842,9 +2842,16 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] failure report writer 从 `TestdiffGenerationPolicy` 生成结构化 issues，记录 opt-in generator 的状态、阻塞原因、当前输入计数和有效配置。
 - [x] `TestdiffGenerationContract` 已补齐 sidecar/failure report 字段说明，包括 `artifact`、`artifact_status` 和 `current_inputs`。
 - [x] 新增 `testdiff_generation_result_writer_smoke`，覆盖 failure report 与 sidecar 实际落盘、Case 相对路径约束和非相对输入路径过滤。
-- [ ] 当前 N76 不生成图片像素 diff、属性结构 diff 或性能趋势 diff artifact；真实算法仍需在 N77+ 以后基于该落盘契约逐步启用。
+- [ ] 当前 N76 不生成图片像素 diff、属性结构 diff 或性能趋势 diff artifact；真实算法仍需在 N79+ 以后基于该落盘契约逐步启用。
 
-### 36.63 持续门禁
+### 36.63 N77：TaskHistory coordinator 拆分
+
+- [x] 新增 `workbench/TaskHistoryCoordinator.*`，把任务 start/finish 记录、状态映射、Case 相对 working directory 归一化、历史上限裁剪和 `WorkbenchMockData` / `CaseManifest` 同步从 `WorkbenchWindow` 抽出。
+- [x] `WorkbenchWindow::recordTaskStarted()` / `recordTaskFinished()` 现在只负责调用 coordinator 并刷新 `TaskHistoryPanel`，命令启动时机和 UI 行为保持不变。
+- [x] `workbench_presenter_smoke` 覆盖 coordinator start/finish、timeout 状态、manifest 同步和历史裁剪。
+- [ ] 当前 N77 不实现真正任务队列、逐任务取消入口或 dry-run/subphase 子任务分组；这些留给 N78。
+
+### 36.64 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。

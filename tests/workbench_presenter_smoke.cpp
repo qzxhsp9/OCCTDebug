@@ -3,6 +3,7 @@
 #include "workbench/DiffPanel.h"
 #include "workbench/EvidenceCoordinator.h"
 #include "workbench/EvidencePanel.h"
+#include "workbench/TaskHistoryCoordinator.h"
 #include "workbench/TaskHistoryPanel.h"
 #include "workbench/TestdiffAdapterResultCoordinator.h"
 #include "workbench/TestgridTablePresenter.h"
@@ -11,6 +12,7 @@
 #include "workbench/VerificationPanel.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
@@ -118,6 +120,84 @@ int main(int argc, char** argv)
         || taskPanel.artifactAt(0) != QStringLiteral("artifacts/testgrid_result.json"))
     {
         QTextStream(stderr) << "task history panel did not show latest task first\n";
+        return 1;
+    }
+
+    occtdebug::WorkbenchMockData taskData;
+    taskData.workspaceRoot = QDir::currentPath();
+    occtdebug::CommandRequest taskRequest;
+    taskRequest.program = QStringLiteral("ctest.exe");
+    taskRequest.arguments = {QStringLiteral("-R"), QStringLiteral("draw_smoke")};
+    taskRequest.workingDirectory = taskData.workspaceRoot;
+    occtdebug::TaskHistoryCoordinator::recordStarted(
+        taskData,
+        {
+            QStringLiteral("draw"),
+            QStringLiteral("DRAW smoke gate"),
+            taskRequest,
+            QStringLiteral("artifacts/draw_result.json"),
+            QStringLiteral("logs/draw.stdout.log"),
+            QStringLiteral("logs/draw.stderr.log"),
+        });
+    occtdebug::CommandResult taskResult;
+    taskResult.program = taskRequest.program;
+    taskResult.arguments = taskRequest.arguments;
+    taskResult.workingDirectory = taskRequest.workingDirectory;
+    taskResult.exitCode = 0;
+    taskResult.elapsedMs = 42;
+    occtdebug::TaskHistoryCoordinator::recordFinished(
+        taskData,
+        {
+            QStringLiteral("draw"),
+            taskResult,
+            QStringLiteral("artifacts/draw_result.json"),
+            QStringLiteral("logs/draw.stdout.log"),
+            QStringLiteral("logs/draw.stderr.log"),
+            QStringLiteral("ok"),
+        });
+    if (taskData.taskHistory.size() != 1
+        || taskData.manifest.taskHistory.size() != 1
+        || taskData.taskHistory.first().status != QStringLiteral("passed")
+        || taskData.taskHistory.first().program != QStringLiteral("ctest.exe")
+        || taskData.taskHistory.first().arguments != QStringLiteral("-R draw_smoke")
+        || taskData.taskHistory.first().workingDirectory != QStringLiteral(".")
+        || taskData.taskHistory.first().artifact != QStringLiteral("artifacts/draw_result.json")
+        || taskData.taskHistory.first().note != QStringLiteral("ok"))
+    {
+        QTextStream(stderr) << "task history coordinator did not record start/finish and sync manifest\n";
+        return 1;
+    }
+
+    occtdebug::CommandResult timeoutResult = taskResult;
+    timeoutResult.timedOut = true;
+    if (occtdebug::TaskHistoryCoordinator::outcomeStatus(timeoutResult) != QStringLiteral("timed_out"))
+    {
+        QTextStream(stderr) << "task history coordinator did not preserve timeout status\n";
+        return 1;
+    }
+
+    occtdebug::WorkbenchMockData trimmedData;
+    for (int i = 0; i < 3; ++i)
+    {
+        occtdebug::CommandRequest trimRequest;
+        trimRequest.program = QStringLiteral("cmd.exe");
+        occtdebug::TaskHistoryCoordinator::recordStarted(
+            trimmedData,
+            {
+                QStringLiteral("task_%1").arg(i),
+                QStringLiteral("Task %1").arg(i),
+                trimRequest,
+                QString(),
+                QString(),
+                QString(),
+                2,
+            });
+    }
+    if (trimmedData.taskHistory.size() != 2
+        || trimmedData.manifest.taskHistory.size() != 2
+        || trimmedData.taskHistory.first().id != QStringLiteral("task_1"))
+    {
+        QTextStream(stderr) << "task history coordinator did not trim old records\n";
         return 1;
     }
 

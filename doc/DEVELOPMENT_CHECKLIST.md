@@ -46,6 +46,7 @@
 - [x] 二阶段 final 后 UI 控件刷新与保存/报告触发动作已抽到 `TwoStageFinalResultUiAdapter`。
 - [x] testdiff adapter result 的 UI 数据、manifest、Evidence 登记和报告触发意图已抽到 `TestdiffAdapterResultCoordinator`。
 - [x] EvidenceBundle / VerificationReport 实际写出、路径计算和错误汇总已抽到 `ReportRefreshCoordinator`。
+- [x] 任务历史 start/finish 记录、状态映射、历史裁剪和 manifest/mock 同步已抽到 `TaskHistoryCoordinator`。
 
 ## 4. Case 数据模型
 
@@ -90,6 +91,7 @@
 - [x] 支持取消运行中任务；`CommandRunner` 有取消结果语义，DRAW/env/testgrid/testdiff/two-stage/patch UI 已有最小取消入口。
 - [x] 支持命令级超时；`CommandRunner` 有 `timedOut` / `timeoutMs` 结果语义，DRAW/env/testgrid/testdiff/two-stage/patch artifact 会记录超时状态。
 - [x] 底部 `Tasks` tab 已接入 `TaskHistoryPanel`，DRAW/env/Repro Pack/testgrid/testdiff/two-stage/patch 命令会登记可浏览任务历史。
+- [x] 任务历史记录已由 `TaskHistoryCoordinator` 统一写入 `WorkbenchMockData` 和 `CaseManifest`，并由 `workbench_presenter_smoke` 覆盖 start/finish、timeout 和裁剪。
 - [x] 命令输出已有接入底部控制台的基础。
 - [ ] 命令执行默认限制在 Case workspace。
 - [x] 失败时有明确错误提示的基础。

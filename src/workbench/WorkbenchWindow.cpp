@@ -25,6 +25,7 @@
 #include "workbench/EvidencePanel.h"
 #include "workbench/ReportRefreshCoordinator.h"
 #include "workbench/SourcePanel.h"
+#include "workbench/TaskHistoryCoordinator.h"
 #include "workbench/TaskHistoryPanel.h"
 #include "workbench/TestdiffAdapterResultCoordinator.h"
 #include "workbench/TestgridTablePresenter.h"
@@ -3460,24 +3461,7 @@ void WorkbenchWindow::recordTaskStarted(const QString& id,
                                         const QString& stdoutLog,
                                         const QString& stderrLog)
 {
-    occtdebug::TaskRecord record;
-    record.id = id;
-    record.title = title;
-    record.status = QStringLiteral("running");
-    record.program = QFileInfo(request.program).fileName();
-    record.arguments = request.arguments.join(QLatin1Char(' '));
-    record.workingDirectory = caseRelativeOrFileName(m_data.workspaceRoot, request.workingDirectory);
-    record.startedAt = currentUtcIsoTimestamp();
-    record.artifact = artifact;
-    record.stdoutLog = stdoutLog;
-    record.stderrLog = stderrLog;
-
-    m_data.taskHistory.push_back(record);
-    if (m_data.taskHistory.size() > 200)
-    {
-        m_data.taskHistory.erase(m_data.taskHistory.begin(), m_data.taskHistory.begin() + (m_data.taskHistory.size() - 200));
-    }
-    m_data.manifest.taskHistory = m_data.taskHistory;
+    occtdebug::TaskHistoryCoordinator::recordStarted(m_data, {id, title, request, artifact, stdoutLog, stderrLog});
     refreshTaskHistoryPanel();
 }
 
@@ -3488,42 +3472,7 @@ void WorkbenchWindow::recordTaskFinished(const QString& id,
                                          const QString& stderrLog,
                                          const QString& note)
 {
-    auto match = std::find_if(m_data.taskHistory.rbegin(), m_data.taskHistory.rend(), [&](const occtdebug::TaskRecord& task) {
-        return task.id == id && task.status == QStringLiteral("running");
-    });
-
-    if (match == m_data.taskHistory.rend())
-    {
-        occtdebug::TaskRecord record;
-        record.id = id;
-        record.title = id;
-        record.startedAt = currentUtcIsoTimestamp();
-        m_data.taskHistory.push_back(record);
-        match = m_data.taskHistory.rbegin();
-    }
-
-    match->status = commandOutcomeText(result);
-    match->program = QFileInfo(result.program).fileName();
-    match->arguments = result.arguments.join(QLatin1Char(' '));
-    match->workingDirectory = caseRelativeOrFileName(m_data.workspaceRoot, result.workingDirectory);
-    match->finishedAt = currentUtcIsoTimestamp();
-    match->elapsedMs = result.elapsedMs;
-    match->exitCode = result.exitCode;
-    if (!artifact.isEmpty())
-    {
-        match->artifact = artifact;
-    }
-    if (!stdoutLog.isEmpty())
-    {
-        match->stdoutLog = stdoutLog;
-    }
-    if (!stderrLog.isEmpty())
-    {
-        match->stderrLog = stderrLog;
-    }
-    match->note = note;
-
-    m_data.manifest.taskHistory = m_data.taskHistory;
+    occtdebug::TaskHistoryCoordinator::recordFinished(m_data, {id, result, artifact, stdoutLog, stderrLog, note});
     refreshTaskHistoryPanel();
 }
 

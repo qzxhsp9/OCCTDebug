@@ -137,6 +137,8 @@ set(OCCTDEBUG_SOURCES
     workbench/ReportRefreshCoordinator.h
     workbench/SourcePanel.cpp
     workbench/SourcePanel.h
+    workbench/TaskHistoryCoordinator.cpp
+    workbench/TaskHistoryCoordinator.h
     workbench/TestdiffAdapterResultCoordinator.cpp
     workbench/TestdiffAdapterResultCoordinator.h
     workbench/TestgridTablePresenter.cpp
@@ -593,6 +595,8 @@ if(BUILD_TESTING)
         workbench/TestdiffAdapterResultCoordinator.h
         workbench/TestgridTablePresenter.cpp
         workbench/TestgridTablePresenter.h
+        workbench/TaskHistoryCoordinator.cpp
+        workbench/TaskHistoryCoordinator.h
         workbench/TaskHistoryPanel.cpp
         workbench/TaskHistoryPanel.h
         workbench/TwoStageFinalResultCoordinator.cpp
