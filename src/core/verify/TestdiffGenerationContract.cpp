@@ -83,6 +83,7 @@ QJsonObject TestdiffGenerationContract::defaultConfig()
                   QStringLiteral("reason"),
                   QStringLiteral("blocked_by"),
                   QStringLiteral("input_artifacts"),
+                  QStringLiteral("current_inputs"),
                   QStringLiteral("config"),
               }},
          }},
@@ -108,6 +109,7 @@ QJsonObject TestdiffGenerationContract::failureReportContract()
              QStringLiteral("reason"),
              QStringLiteral("blocked_by"),
              QStringLiteral("input_artifacts"),
+             QStringLiteral("current_inputs"),
              QStringLiteral("config"),
          }},
         {QStringLiteral("privacy_rules"), QJsonArray {
@@ -131,6 +133,8 @@ QJsonObject TestdiffGenerationContract::build()
         root + QStringLiteral("/image/{key}.pixel_diff.meta.json"),
         QJsonArray {
             QStringLiteral("generator_id"),
+            QStringLiteral("artifact"),
+            QStringLiteral("artifact_status"),
             QStringLiteral("input_artifacts"),
             QStringLiteral("algorithm"),
             QStringLiteral("tolerance"),
@@ -150,6 +154,8 @@ QJsonObject TestdiffGenerationContract::build()
         root + QStringLiteral("/property/{key}.structural_diff.meta.json"),
         QJsonArray {
             QStringLiteral("generator_id"),
+            QStringLiteral("artifact"),
+            QStringLiteral("artifact_status"),
             QStringLiteral("input_artifacts"),
             QStringLiteral("schema_policy"),
             QStringLiteral("status"),
@@ -167,6 +173,8 @@ QJsonObject TestdiffGenerationContract::build()
         root + QStringLiteral("/performance/{key}.trend_diff.meta.json"),
         QJsonArray {
             QStringLiteral("generator_id"),
+            QStringLiteral("artifact"),
+            QStringLiteral("artifact_status"),
             QStringLiteral("input_artifacts"),
             QStringLiteral("baseline"),
             QStringLiteral("threshold_policy"),

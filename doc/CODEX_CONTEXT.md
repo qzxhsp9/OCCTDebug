@@ -35,6 +35,7 @@ OCCTDebug 是 Windows 本地的“OCCT 内核专家工作台”：把用户的 O
 - testdiff 生成器 N73：`CaseManifest` 已可保存 `verification.testdiff_generation`，包含 `enabled_generators`、图片/属性容差、性能回归阈值和失败报告路径；`TestdiffGenerationContract` 已输出默认配置与失败报告 schema；`TestdiffGenerationPolicy` 可识别显式 opt-in 并输出每个生成器的有效配置、阻塞原因和 `failure_report` 状态，但仍保持 `enabled=false`、`generation_performed=false`，不写伪 artifact。新增 `testdiff_generation_failure_report_smoke` 覆盖该边界。
 - Case 保存同步 N74：`workbench/CaseManifestSync.*` 已把保存 Case 时的可变字段回填从 `WorkbenchWindow` 抽成纯 helper；`WorkbenchMockData` 已携带 `testdiffGenerationConfig`，从 Case 加载时保留 `verification.testdiff_generation` 并在保存同步时写回 manifest。`workbench_presenter_smoke` 覆盖 repro、testdiff generation、patch、testgrid 和 workflow fallback 同步。
 - 任务历史 N75：`CaseManifest.tasks.history` 已记录命令任务时间线，包含状态、耗时、退出码、命令摘要、Case 相对日志和 artifact；`WorkbenchMockData`、`CaseManifestSync` 和底部 `TaskHistoryPanel` 已接入。DRAW/env/Repro Pack/testgrid/testdiff/two-stage/patch 命令会登记 start/finished，当前仍不是完整队列调度器。
+- testdiff 生成器 writer N76：`core/verify/TestdiffGenerationResultWriter.*` 已能写出未来生成器的 Case 相对 sidecar `*.meta.json` 与 opt-in blocked `failure_report.json`，会过滤非 Case 相对输入路径并记录隐私边界；当前只固化 writer 契约，不生成图片像素 diff、属性结构 diff 或性能趋势 artifact。
 - Source/Diagnosis：源码 tab 可本地关键词搜索并跳转文件行；相似案例面板可按关键词或当前诊断重排；诊断面板可导出 `report/diagnosis_report.md` 并登记为 Evidence。
 - Patch Review：候选补丁审查状态已接入 Case manifest，可在 UI 中标记送审/通过/退回，并导出 `report/patch_review.md`；候选补丁 diff 可手工编辑、从 `.patch/.diff` 导入、导出为 `.patch`，也可基于可选 `patch.worktree_root` 异步执行 `git diff --binary HEAD` 生成。该生成流程通过 `CommandRunner` 记录命令、cwd、stdout/stderr、退出码和耗时，写入 `logs/patch_generate.stdout.log`、`logs/patch_generate.stderr.log` 与 `artifacts/patch_generate_result.json`；成功且有 diff 时再保存到 `artifacts/candidate_patch.diff` 和 `candidate_patch_manifest.json`。Patch Review 面板已有 Apply/Undo 最小入口，通过可选 `patch.worktree_root` 在目标 worktree 中执行 `git apply --check` / `git apply -R --check` dry-run，通过后再执行 `git apply` / `git apply -R`，结果写入 Case logs/artifacts/Evidence。审查报告会链接最新 VerificationReport。Patch signoff 会读取最新 VerificationReport，只有 overall passed 且 patch review gate 可接受时才写入 `signed off`，否则写入 `blocked`。当前仍不自动生成源码修复，也不自动提交或合并。
 - EvidenceBundle：`core/evidence/EvidenceBundleWriter.*` 会把当前 Case evidence records、source/log/geometry/artifact 分类、可选定位字段、几何检查、验证指标、before/after 验证对比、testgrid/testdiff 失败明细、验证耗时、testdiff 工件、`artifact_index` / `artifact_analysis` 摘要、诊断和 patch 状态写入 `artifacts/evidence_bundle.json`；patch 生成状态、patch dry-run、patch 审查状态和审查项也会进入 patch 摘要。Markdown 报告会在文件存在时链接该结构化证据包。`evidence_bundle_smoke` CTest 覆盖 sample case 生成路径、source/log/geometry location、verification comparison、N35 testdiff artifacts、N36 patch generation、N52/N54 artifact summary 和 patch review 输出，并检查不写入本机绝对路径。
@@ -132,6 +133,6 @@ OCCTDebug 是 Windows 本地的“OCCT 内核专家工作台”：把用户的 O
 
 下一步应实现“Case workspace 最小闭环”，而不是继续扩展静态页面：
 
-1. 为真实 testdiff 生成器输出 sidecar 与 failure report writer 后，再启用具体生成算法。
-2. 继续收束 WorkbenchWindow 中剩余命令编排和 UI 刷新职责。
-3. 在 TaskHistory 基础上补真正的队列调度、逐任务取消入口和 dry-run/subphase 子任务分组。
+1. 继续收束 WorkbenchWindow 中剩余命令编排和 UI 刷新职责。
+2. 在 TaskHistory 基础上补真正的队列调度、逐任务取消入口和 dry-run/subphase 子任务分组。
+3. 先补具体生成算法 smoke 与隐私边界，再启用第一类真实 testdiff 生成器。

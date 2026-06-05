@@ -124,6 +124,7 @@
 - [x] testdiff 真实生成器边界已固化为 `TestdiffGenerationPolicy`，`artifact_analysis.generation_policy` 会记录候选输入、禁用状态、阻塞原因和后续契约，当前不生成伪 artifact。
 - [x] testdiff 真实生成器 opt-in 契约已固化为 `TestdiffGenerationContract`，定义 manifest 字段、Case 相对输出根、sidecar 命名、三类生成器输出模式和隐私边界。
 - [x] testdiff 真实生成器配置已进入 `CaseManifest.verification.testdiff_generation`，包含 opt-in 列表、图片/属性容差、性能回归阈值和失败报告路径；策略会输出有效配置与 `failure_report` 状态，但仍不启用生成算法。
+- [x] testdiff 真实生成器结果 writer 已固化为 `TestdiffGenerationResultWriter`，可写 Case 相对 sidecar `*.meta.json` 与 opt-in blocked `failure_report.json`，并过滤非 Case 相对输入路径。
 - [x] Case 保存字段同步已抽到 `CaseManifestSync`，`WorkbenchWindow` 保存时只负责读取当前编辑器/UI layout，并通过 helper 回填可变 manifest 字段。
 - [x] testdiff adapter runner 日志、summary、adapter result/manifest 和兼容 `testgrid_result.json` 写入已抽到 `TestdiffAdapterResultWriter`。
 - [ ] OCCT Viewer 尚需更强的跨拓扑重建永久命名，当前 compare artifact 生成仍基于已落盘 topology signature 和启发式局部几何匹配。
@@ -146,6 +147,7 @@
 - [x] testdiff artifact 已支持 image/property/performance 工件索引，输出 `artifact_index` 供报告和 UI 后续消费。
 - [x] testdiff artifact 已支持 `artifact_analysis`，输出图片 diff 来源、属性 JSON 摘要和性能文本指标，供报告和后续 UI 消费。
 - [x] testdiff artifact 已支持 `generation_policy.contract`，明确真实图片像素 diff、属性结构 diff、性能趋势 diff 只能通过 opt-in 配置、Case 相对输出和专门 smoke 覆盖后才能启用。
+- [x] testdiff generation writer 已由 `testdiff_generation_result_writer_smoke` 覆盖 sidecar、failure report、路径过滤和隐私边界。
 - [x] VerificationReport 与 EvidenceBundle 已展示/归档 `artifact_index_summary`，覆盖 kind 组数和配对状态计数。
 - [x] VerificationReport 与 EvidenceBundle 已展示/归档 `artifact_analysis` 摘要。
 - [x] 差异对比 tab 已展示 `artifact_index` 与 `artifact_analysis` 的专门表格视图。

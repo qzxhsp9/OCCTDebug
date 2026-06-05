@@ -99,6 +99,8 @@ set(OCCTDEBUG_SOURCES
     core/verify/TestdiffGenerationContract.h
     core/verify/TestdiffGenerationPolicy.cpp
     core/verify/TestdiffGenerationPolicy.h
+    core/verify/TestdiffGenerationResultWriter.cpp
+    core/verify/TestdiffGenerationResultWriter.h
     core/verify/TestdiffArtifactIndex.cpp
     core/verify/TestdiffArtifactIndex.h
     core/verify/TestdiffArtifactScanner.cpp
@@ -971,6 +973,38 @@ if(BUILD_TESTING)
     set_tests_properties(testdiff_generation_failure_report_smoke PROPERTIES
         LABELS "verify;testdiff;artifact;generation;failure;smoke"
         PASS_REGULAR_EXPRESSION "TESTDIFF_GENERATION_FAILURE_REPORT_SMOKE_OK"
+    )
+
+    add_executable(OCCTDebugTestdiffGenerationResultWriterSmoke
+        "${CMAKE_SOURCE_DIR}/tests/testdiff_generation_result_writer_smoke.cpp"
+        core/verify/TestdiffGenerationContract.cpp
+        core/verify/TestdiffGenerationContract.h
+        core/verify/TestdiffGenerationPolicy.cpp
+        core/verify/TestdiffGenerationPolicy.h
+        core/verify/TestdiffGenerationResultWriter.cpp
+        core/verify/TestdiffGenerationResultWriter.h
+    )
+    target_include_directories(OCCTDebugTestdiffGenerationResultWriterSmoke PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}"
+    )
+    target_link_libraries(OCCTDebugTestdiffGenerationResultWriterSmoke PRIVATE Qt6::Core)
+    target_compile_definitions(OCCTDebugTestdiffGenerationResultWriterSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+    )
+    if(MSVC)
+        target_compile_options(OCCTDebugTestdiffGenerationResultWriterSmoke PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(OCCTDebugTestdiffGenerationResultWriterSmoke PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_test(
+        NAME testdiff_generation_result_writer_smoke
+        COMMAND $<TARGET_FILE:OCCTDebugTestdiffGenerationResultWriterSmoke>
+    )
+    set_tests_properties(testdiff_generation_result_writer_smoke PROPERTIES
+        LABELS "verify;testdiff;artifact;generation;writer;smoke"
+        PASS_REGULAR_EXPRESSION "TESTDIFF_GENERATION_RESULT_WRITER_SMOKE_OK"
     )
 
     add_executable(OCCTDebugTestdiffAdapterResultWriterSmoke
