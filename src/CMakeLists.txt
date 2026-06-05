@@ -121,6 +121,8 @@ set(OCCTDEBUG_SOURCES
     core/verify/TwoStageFinalResultWriter.h
     core/verify/TwoStagePhaseResultWriter.cpp
     core/verify/TwoStagePhaseResultWriter.h
+    core/verify/TwoStageTaskPlan.cpp
+    core/verify/TwoStageTaskPlan.h
     core/verify/TwoStageVerificationResultWriter.cpp
     core/verify/TwoStageVerificationResultWriter.h
     workbench/CaseManifestSync.cpp
@@ -1181,6 +1183,36 @@ if(BUILD_TESTING)
     set_tests_properties(two_stage_final_result_builder_smoke PROPERTIES
         LABELS "verify;builder;testgrid;artifact;smoke"
         PASS_REGULAR_EXPRESSION "TWO_STAGE_FINAL_RESULT_BUILDER_SMOKE_OK"
+    )
+
+    add_executable(OCCTDebugTwoStageTaskPlanSmoke
+        "${CMAKE_SOURCE_DIR}/tests/two_stage_task_plan_smoke.cpp"
+        core/verify/TwoStageTaskPlan.cpp
+        core/verify/TwoStageTaskPlan.h
+    )
+    target_include_directories(OCCTDebugTwoStageTaskPlanSmoke PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}"
+    )
+    target_link_libraries(OCCTDebugTwoStageTaskPlanSmoke PRIVATE
+        Qt6::Core
+    )
+    target_compile_definitions(OCCTDebugTwoStageTaskPlanSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+    )
+    if(MSVC)
+        target_compile_options(OCCTDebugTwoStageTaskPlanSmoke PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(OCCTDebugTwoStageTaskPlanSmoke PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_test(
+        NAME two_stage_task_plan_smoke
+        COMMAND $<TARGET_FILE:OCCTDebugTwoStageTaskPlanSmoke>
+    )
+    set_tests_properties(two_stage_task_plan_smoke PROPERTIES
+        LABELS "verify;testgrid;workflow;queue;dry-run;smoke"
+        PASS_REGULAR_EXPRESSION "TWO_STAGE_TASK_PLAN_SMOKE_OK"
     )
 
     add_executable(OCCTDebugTwoStageVerificationResultWriterSmoke

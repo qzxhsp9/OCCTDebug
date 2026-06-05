@@ -91,6 +91,7 @@
 - [x] 支持取消运行中任务；`CommandRunner` 有取消结果语义，DRAW/env/testgrid/testdiff/two-stage/patch UI 已有最小取消入口。
 - [x] 支持命令级超时；`CommandRunner` 有 `timedOut` / `timeoutMs` 结果语义，DRAW/env/testgrid/testdiff/two-stage/patch artifact 会记录超时状态。
 - [x] `CommandTaskQueue` 已提供顺序命令队列内核，支持 phase/subphase/dryRun 元数据、取消当前任务和取消剩余队列时的 skipped 结果。
+- [x] `TwoStageTaskPlan` 已能把二阶段验证 gate/command/patch dry-run 子阶段映射为 `CommandTask` 队列计划。
 - [x] 底部 `Tasks` tab 已接入 `TaskHistoryPanel`，DRAW/env/Repro Pack/testgrid/testdiff/two-stage/patch 命令会登记可浏览任务历史。
 - [x] 任务历史记录已由 `TaskHistoryCoordinator` 统一写入 `WorkbenchMockData` 和 `CaseManifest`，并由 `workbench_presenter_smoke` 覆盖 start/finish、timeout 和裁剪。
 - [ ] 现有 DRAW/testgrid/testdiff/two-stage/patch UI 命令尚未整体迁移到 `CommandTaskQueue`。

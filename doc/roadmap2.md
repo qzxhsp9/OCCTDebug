@@ -2859,7 +2859,14 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] 新增 `command_task_queue_smoke`，覆盖顺序执行、dry-run/subphase 元数据保留、取消当前任务和跳过剩余队列。
 - [ ] 当前 N78 先完成队列内核；DRAW/testgrid/testdiff/two-stage/patch UI 仍需后续逐步迁移到该队列，并将队列结果接入 `TaskHistoryCoordinator`。
 
-### 36.65 持续门禁
+### 36.65 N79：Two-stage task queue plan
+
+- [x] 新增 `core/verify/TwoStageTaskPlan.*`，把二阶段验证的 before gate、before command、patch apply/dry-run、after gate、after command、patch undo/dry-run 映射为 `CommandTask` 列表。
+- [x] 每个任务都带稳定 id、title、phase、subphase、dryRun 和原始 `CommandRequest`，为后续二阶段 UI 迁移到 `CommandTaskQueue` 提供输入契约。
+- [x] 新增 `two_stage_task_plan_smoke`，覆盖完整任务计划、最小 gate-only 计划、dry-run 元数据和 request 保留。
+- [ ] 当前 N79 只完成二阶段队列计划构造；`WorkbenchWindow` 的二阶段执行状态机尚未切换到 `CommandTaskQueue`。
+
+### 36.66 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。

@@ -99,15 +99,16 @@
 - N76：新增 `core/verify/TestdiffGenerationResultWriter.*`，为未来真实 testdiff 生成器提供 Case 相对 sidecar `*.meta.json` 与 opt-in blocked `failure_report.json` 写入契约；writer 只写元数据和失败报告，不生成伪图片/属性/性能 artifact，并由 `testdiff_generation_result_writer_smoke` 覆盖路径过滤、报告 issue 和 sidecar 字段。
 - N77：新增 `workbench/TaskHistoryCoordinator.*`，把任务 start/finish 记录、状态映射、working directory 归一化、历史裁剪和 manifest/mock 同步从 `WorkbenchWindow` 抽出；`workbench_presenter_smoke` 覆盖 coordinator 行为，当前仍不引入任务队列。
 - N78：新增 `core/runner/CommandTaskQueue.*`，提供顺序命令队列内核，任务带 phase/subphase/dryRun 元数据，支持取消当前任务和取消剩余队列时生成 skipped 结果；`command_task_queue_smoke` 覆盖顺序执行、dry-run 元数据和取消路径。当前 UI 尚未迁移到队列。
+- N79：新增 `core/verify/TwoStageTaskPlan.*`，把二阶段验证 before/after gate、可选 command、patch apply/undo dry-run 子阶段映射为 `CommandTask` 列表；`two_stage_task_plan_smoke` 覆盖完整计划和最小 gate-only 计划。当前二阶段 UI 状态机尚未切到队列执行。
 
 后续任务应优先把这些基础能力串成真实 Case 工作流。
 
 ## 2. 推荐任务顺序
 
 ```text
-N79 将二阶段验证编排迁移到 CommandTaskQueue，并把队列子任务写入 TaskHistory
-N80 先补具体生成算法 smoke 与隐私边界，再启用第一类真实 testdiff 生成器
-N81 继续收束 WorkbenchWindow 中剩余命令编排和 UI 刷新职责
+N80 将二阶段验证执行迁移到 CommandTaskQueue，并把队列子任务写入 TaskHistory
+N81 先补具体生成算法 smoke 与隐私边界，再启用第一类真实 testdiff 生成器
+N82 继续收束 WorkbenchWindow 中剩余命令编排和 UI 刷新职责
 ```
 
 ## 3. N1：配置系统与 AppContext
