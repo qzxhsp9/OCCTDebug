@@ -6,6 +6,7 @@
 #include <QProcessEnvironment>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 
 namespace occtdebug
 {
@@ -15,6 +16,7 @@ struct CommandRequest
     QStringList arguments;
     QString workingDirectory;
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    int timeoutMs = 0;
 };
 
 struct CommandResult
@@ -27,6 +29,9 @@ struct CommandResult
     int exitCode = -1;
     QProcess::ExitStatus exitStatus = QProcess::NormalExit;
     qint64 elapsedMs = 0;
+    bool canceled = false;
+    bool timedOut = false;
+    int timeoutMs = 0;
 };
 
 class CommandRunner final : public QObject
@@ -50,7 +55,10 @@ private:
     void handleFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
     QProcess* m_process = nullptr;
+    QTimer* m_timeoutTimer = nullptr;
     QElapsedTimer m_elapsed;
     CommandResult m_result;
+    bool m_cancelRequested = false;
+    bool m_timeoutExpired = false;
 };
 } // namespace occtdebug

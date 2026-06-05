@@ -21,6 +21,16 @@ moc_*.cpp
 ui_*.h
 qrc_*.cpp
 
+# OCCTDebug local state
+config/workbench.local.yaml
+cases/
+artifacts/
+knowledge/cache/
+knowledge/private_cases/
+!sample_cases/**/artifacts/
+!sample_cases/**/artifacts/testgrid_result.json
+!sample_cases/**/artifacts/patch_generate_result.json
+
 # OS
 .DS_Store
 Thumbs.db

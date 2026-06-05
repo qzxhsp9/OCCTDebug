@@ -7,6 +7,7 @@ namespace occtdebug
 struct WorkbenchMockData
 {
     CaseManifest manifest;
+    QString workspaceRoot;
     QString caseId;
     QString caseStatus;
     QString occtVersion;
@@ -14,6 +15,7 @@ struct WorkbenchMockData
     QString platform;
     QString sourceText;
     QString reproScript;
+    ReproStatus reproStatus;
     QString geometrySummary;
     QString evidenceSummary;
     QString diffSummary;
@@ -21,6 +23,12 @@ struct WorkbenchMockData
     QString diagnosis;
     int diagnosisConfidence = 0;
     QString patchDiff;
+    QString patchReviewStatus;
+    QString patchWorktreeRoot;
+    QString patchApplyStatus;
+    QString patchApplyLog;
+    QString patchSignoffStatus;
+    QString patchSignoffNote;
     QString drawConsoleText;
     QString cmakeConsoleText;
 
@@ -30,10 +38,13 @@ struct WorkbenchMockData
     QVector<GeometryCheck> geometryChecks;
     QVector<EvidenceRecord> evidenceItems;
     QVector<LabelValue> verificationItems;
+    VerificationPlan verificationPlan;
     QVector<SimilarCase> similarCases;
     QVector<TestgridRow> testgridRows;
+    QVector<LabelValue> patchReviewItems;
 };
 
 WorkbenchMockData createWorkbenchDataFromCase(const CaseManifest& manifest);
+WorkbenchMockData createWorkbenchDataFromCaseDirectory(const QString& caseDirectory, QString* error = nullptr);
 WorkbenchMockData createMockWorkbenchData();
 } // namespace occtdebug

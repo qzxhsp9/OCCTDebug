@@ -1,0 +1,496 @@
+{
+  "schema_version": 1,
+  "case_id": "OCC-LOCAL-2026-0001",
+  "draw_smoke_gate_passed": true,
+  "gate": {
+    "exit_code": 0,
+    "elapsed_ms": 420,
+    "stdout": "logs/testgrid_gate.stdout.log",
+    "stderr": "logs/testgrid_gate.stderr.log"
+  },
+  "testgrid_command": {
+    "executed": true,
+    "exit_code": 1,
+    "elapsed_ms": 1280,
+    "stdout": "logs/testgrid.stdout.log",
+    "stderr": "logs/testgrid.stderr.log"
+  },
+  "testgrid_summary": "verification/testgrid_summary.txt",
+  "testdiff_summary": "verification/testdiff_summary.txt",
+  "testgrid_rows": [
+    {
+      "module": "Modeling",
+      "run_count": "98",
+      "pass_count": "96",
+      "fail_count": "1",
+      "pass_rate": "97.9%"
+    },
+    {
+      "module": "Visualization",
+      "run_count": "76",
+      "pass_count": "75",
+      "fail_count": "0",
+      "pass_rate": "98.7%"
+    },
+    {
+      "module": "DataExchange",
+      "run_count": "62",
+      "pass_count": "61",
+      "fail_count": "1",
+      "pass_rate": "98.4%"
+    }
+  ],
+  "testdiff_entries": [
+    {
+      "name": "geometry_images",
+      "status": "diff",
+      "metric": "2px",
+      "note": "failing-edge-highlight-changed"
+    },
+    {
+      "name": "brep_properties",
+      "status": "changed",
+      "metric": "1",
+      "note": "edge-null-curve-detected"
+    },
+    {
+      "name": "regression",
+      "status": "fail",
+      "metric": "2",
+      "note": "needs-review-before-merge"
+    }
+  ],
+  "failure_details": [
+    {
+      "type": "testgrid",
+      "name": "Modeling",
+      "status": "failed",
+      "summary": "1 failed out of 98",
+      "artifact": "artifacts/testgrid_result.json"
+    },
+    {
+      "type": "testgrid",
+      "name": "DataExchange",
+      "status": "failed",
+      "summary": "1 failed out of 62",
+      "artifact": "artifacts/testgrid_result.json"
+    },
+    {
+      "type": "testdiff",
+      "name": "geometry_images",
+      "status": "diff",
+      "summary": "2px failing-edge-highlight-changed",
+      "artifact": "verification/testdiff_summary.txt"
+    },
+    {
+      "type": "testdiff",
+      "name": "regression",
+      "status": "fail",
+      "summary": "2 needs-review-before-merge",
+      "artifact": "verification/testdiff_summary.txt"
+    }
+  ],
+  "timing": {
+    "total_elapsed_ms": 1700,
+    "summary": "timing entries=2 total_elapsed_ms=1700",
+    "entries": [
+      {
+        "name": "draw_smoke_gate",
+        "elapsed_ms": 420,
+        "status": "passed"
+      },
+      {
+        "name": "configured_testgrid",
+        "elapsed_ms": 1280,
+        "status": "failed"
+      }
+    ]
+  },
+  "testdiff_artifacts": {
+    "summary": "verification/testdiff_summary.txt",
+    "command_stdout": "logs/testgrid.stdout.log",
+    "command_stderr": "logs/testgrid.stderr.log",
+    "entries_count": 3,
+    "changed_count": 2,
+    "failed_count": 1,
+    "directories": [
+      {
+        "role": "before",
+        "path": "artifacts/testdiff/before"
+      },
+      {
+        "role": "after",
+        "path": "artifacts/testdiff/after"
+      },
+      {
+        "role": "diff",
+        "path": "artifacts/testdiff/diff"
+      }
+    ],
+    "artifact_files": [
+      {
+        "role": "before",
+        "kind": "log",
+        "path": "artifacts/testdiff/before/baseline.log",
+        "bytes": 26
+      },
+      {
+        "role": "after",
+        "kind": "log",
+        "path": "artifacts/testdiff/after/patched.log",
+        "bytes": 25
+      },
+      {
+        "role": "diff",
+        "kind": "image",
+        "path": "artifacts/testdiff/diff/geometry_images.png",
+        "bytes": 30
+      },
+      {
+        "role": "diff",
+        "kind": "property",
+        "path": "artifacts/testdiff/diff/brep_properties.json",
+        "bytes": 20
+      },
+      {
+        "role": "diff",
+        "kind": "performance",
+        "path": "artifacts/testdiff/diff/performance_timing.txt",
+        "bytes": 18
+      }
+    ],
+    "artifact_counts": {
+      "total": 5,
+      "before": 1,
+      "after": 1,
+      "diff": 3,
+      "other": 0,
+      "image": 1,
+      "property": 1,
+      "performance": 1,
+      "log": 2,
+      "text": 0
+    },
+    "artifact_index": {
+      "schema_version": 1,
+      "supported_kinds": [
+        "image",
+        "property",
+        "performance"
+      ],
+      "counts": {
+        "image": {
+          "before": 0,
+          "after": 0,
+          "diff": 1,
+          "other": 0,
+          "total": 1
+        },
+        "property": {
+          "before": 0,
+          "after": 0,
+          "diff": 1,
+          "other": 0,
+          "total": 1
+        },
+        "performance": {
+          "before": 0,
+          "after": 0,
+          "diff": 1,
+          "other": 0,
+          "total": 1
+        }
+      },
+      "groups": [
+        {
+          "kind": "image",
+          "key": "geometry_images",
+          "status": "diff_only",
+          "diff": "artifacts/testdiff/diff/geometry_images.png",
+          "bytes": {
+            "diff": 30
+          }
+        },
+        {
+          "kind": "property",
+          "key": "brep_properties",
+          "status": "diff_only",
+          "diff": "artifacts/testdiff/diff/brep_properties.json",
+          "bytes": {
+            "diff": 20
+          }
+        },
+        {
+          "kind": "performance",
+          "key": "performance_timing",
+          "status": "diff_only",
+          "diff": "artifacts/testdiff/diff/performance_timing.txt",
+          "bytes": {
+            "diff": 18
+          }
+        }
+      ],
+      "strategy": {
+        "image": "Index existing before/after/diff image artifacts by normalized relative name; pixel diff generation is handled by external testdiff tools.",
+        "property": "Index existing JSON/XML/YAML/CSV/BREP property artifacts by normalized relative name for later structured comparison.",
+        "performance": "Index existing perf/timing/benchmark artifacts by normalized relative name; metric extraction remains a later parser step."
+      }
+    },
+    "artifact_analysis": {
+      "schema_version": 1,
+      "summary": {
+        "groups": 3,
+        "image_diff_supplied_by_runner": 1,
+        "property_json_parsed": 1,
+        "performance_metrics": 1
+      },
+      "groups": [
+        {
+          "kind": "image",
+          "key": "geometry_images",
+          "status": "diff_only",
+          "analysis": {
+            "diff_supplied_by_runner": true,
+            "before_supplied": false,
+            "after_supplied": false,
+            "strategy": "Index image artifacts supplied by runner; pixel-level comparison remains an external testdiff responsibility."
+          }
+        },
+        {
+          "kind": "property",
+          "key": "brep_properties",
+          "status": "diff_only",
+          "analysis": {
+            "source_path": "artifacts/testdiff/diff/brep_properties.json",
+            "json": {
+              "available": true,
+              "path": "artifacts/testdiff/diff/brep_properties.json",
+              "valid_json": true,
+              "json_type": "object",
+              "top_level_key_count": 1,
+              "top_level_keys": [
+                "changed_edges"
+              ]
+            },
+            "strategy": "Parse JSON property artifacts when available; XML/YAML/CSV/BREP remain indexed-only in this stage."
+          }
+        },
+        {
+          "kind": "performance",
+          "key": "performance_timing",
+          "status": "diff_only",
+          "analysis": {
+            "source_path": "artifacts/testdiff/diff/performance_timing.txt",
+            "metrics": [
+              {
+                "name": "fillet_case",
+                "value": 0.8,
+                "raw_value": "+0.8",
+                "unit": "%",
+                "line": 1
+              }
+            ],
+            "strategy": "Extract simple numeric metrics from text artifacts; full testdiff performance semantics remain a later parser step."
+          }
+        }
+      ],
+      "limits": {
+        "pixel_diff_generated": false,
+        "property_structural_diff_generated": false,
+        "performance_trend_generated": false
+      },
+      "generation_policy": {
+        "schema_version": 1,
+        "policy": "boundary_only",
+        "generation_performed": false,
+        "contract": {
+          "schema_version": 1,
+          "mode": "opt_in",
+          "enabled_by_default": false,
+          "case_manifest_field": "verification.testdiff_generation.enabled_generators",
+          "output_root": "artifacts/testdiff/generated",
+          "sidecar_suffix": ".meta.json",
+          "generators": [
+            {
+              "id": "image_pixel_diff",
+              "kind": "image",
+              "generated_role": "diff",
+              "required_inputs": [
+                "before image",
+                "after image"
+              ],
+              "output_pattern": "artifacts/testdiff/generated/image/{key}.pixel_diff.png",
+              "sidecar_pattern": "artifacts/testdiff/generated/image/{key}.pixel_diff.meta.json",
+              "sidecar_fields": [
+                "generator_id",
+                "input_artifacts",
+                "algorithm",
+                "tolerance",
+                "created_at",
+                "status"
+              ]
+            },
+            {
+              "id": "property_structural_diff",
+              "kind": "property",
+              "generated_role": "diff",
+              "required_inputs": [
+                "before property JSON",
+                "after property JSON",
+                "schema or key matching policy"
+              ],
+              "output_pattern": "artifacts/testdiff/generated/property/{key}.structural_diff.json",
+              "sidecar_pattern": "artifacts/testdiff/generated/property/{key}.structural_diff.meta.json",
+              "sidecar_fields": [
+                "generator_id",
+                "input_artifacts",
+                "schema_policy",
+                "status"
+              ]
+            },
+            {
+              "id": "performance_trend_diff",
+              "kind": "performance",
+              "generated_role": "diff",
+              "required_inputs": [
+                "current performance metrics",
+                "baseline or before metrics",
+                "threshold policy"
+              ],
+              "output_pattern": "artifacts/testdiff/generated/performance/{key}.trend_diff.json",
+              "sidecar_pattern": "artifacts/testdiff/generated/performance/{key}.trend_diff.meta.json",
+              "sidecar_fields": [
+                "generator_id",
+                "input_artifacts",
+                "baseline",
+                "threshold_policy",
+                "status"
+              ]
+            }
+          ],
+          "privacy_rules": [
+            "All generated artifact paths are case-relative.",
+            "Sidecars must not store runner output absolute paths.",
+            "Private CAD/model filenames must be sanitized before report export."
+          ]
+        },
+        "generators": [
+          {
+            "id": "image_pixel_diff",
+            "kind": "image",
+            "enabled": false,
+            "candidate": false,
+            "generation_performed": false,
+            "reason": "Pixel diff generation is intentionally disabled until an image decoder and comparison contract are defined.",
+            "required_inputs": [
+              "before image",
+              "after image"
+            ],
+            "current_inputs": {
+              "paired_groups": 0,
+              "runner_diff_groups": 1
+            },
+            "blocked_by": [
+              "no bundled image decoder",
+              "no pixel comparator tolerance policy",
+              "no generated image artifact contract"
+            ]
+          },
+          {
+            "id": "property_structural_diff",
+            "kind": "property",
+            "enabled": false,
+            "candidate": false,
+            "generation_performed": false,
+            "reason": "Structural property diff generation is intentionally disabled until before/after schema matching rules are defined.",
+            "required_inputs": [
+              "before property JSON",
+              "after property JSON",
+              "schema or key matching policy"
+            ],
+            "current_inputs": {
+              "paired_groups": 0,
+              "runner_diff_groups": 1,
+              "parsed_property_groups": 1
+            },
+            "blocked_by": [
+              "no structural diff algorithm",
+              "no schema compatibility contract",
+              "no conflict reporting format"
+            ]
+          },
+          {
+            "id": "performance_trend_diff",
+            "kind": "performance",
+            "enabled": false,
+            "candidate": true,
+            "generation_performed": false,
+            "reason": "Performance trend generation is intentionally disabled until a baseline/history model and threshold policy are defined.",
+            "required_inputs": [
+              "current performance metrics",
+              "baseline or before metrics",
+              "threshold policy"
+            ],
+            "current_inputs": {
+              "paired_groups": 0,
+              "runner_diff_groups": 1,
+              "parsed_metric_count": 1
+            },
+            "blocked_by": [
+              "no baseline store",
+              "no trend threshold policy",
+              "no statistical comparison contract"
+            ]
+          }
+        ],
+        "next_steps": [
+          "Define generated artifact filenames and case-relative storage paths.",
+          "Define algorithm-specific tolerances and failure reporting.",
+          "Add opt-in generators only after smoke tests cover generated outputs."
+        ]
+      }
+    },
+    "truncated": false
+  },
+  "before_after": {
+    "available": true,
+    "status": "not_regressed",
+    "summary": "before/after run 298->298 pass 291->293 fail 4->2 delta_fail=-2",
+    "before_run_total": 298,
+    "before_pass_total": 291,
+    "before_fail_total": 4,
+    "after_run_total": 298,
+    "after_pass_total": 293,
+    "after_fail_total": 2,
+    "pass_delta": 2,
+    "fail_delta": -2,
+    "before_summary": "verification/testgrid_before.txt",
+    "after_summary": "verification/testgrid_after.txt",
+    "rows": [
+      {
+        "module": "Modeling",
+        "before_run_count": "98",
+        "before_pass_count": "95",
+        "before_fail_count": "2",
+        "after_run_count": "98",
+        "after_pass_count": "96",
+        "after_fail_count": "1",
+        "pass_delta": 1,
+        "fail_delta": -1,
+        "status": "improved"
+      },
+      {
+        "module": "DataExchange",
+        "before_run_count": "62",
+        "before_pass_count": "60",
+        "before_fail_count": "2",
+        "after_run_count": "62",
+        "after_pass_count": "61",
+        "after_fail_count": "1",
+        "pass_delta": 1,
+        "fail_delta": -1,
+        "status": "improved"
+      }
+    ]
+  }
+}

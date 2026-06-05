@@ -3,20 +3,41 @@
   "configurePresets": [
     {
       "hidden": true,
-      "name": "Qt",
+      "name": "qt-env",
+      "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "$env{QTDIR}"
-      },
-      "vendor": {
-        "qt-project.org/Qt": {
-          "checksum": "wVa86FgEkvdCTVp1/nxvrkaemJc="
-        }
+      }
+    },
+    {
+      "name": "OCCTDebug-Debug",
+      "displayName": "OCCTDebug Debug",
+      "description": "Windows x64 Debug build. Qt is resolved from QTDIR, src/QtWorkbenchDefaults.cmake, or CMake cache.",
+      "inherits": "qt-env",
+      "binaryDir": "${sourceDir}/out/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_TESTING": "ON"
       }
     }
   ],
-  "vendor": {
-    "qt-project.org/Presets": {
-      "checksum": "67SmY24ZeVbebyKD0fGfIzb/bGI="
+  "buildPresets": [
+    {
+      "name": "OCCTDebug-Debug",
+      "configurePreset": "OCCTDebug-Debug",
+      "configuration": "Debug"
     }
-  }
+  ],
+  "testPresets": [
+    {
+      "name": "OCCTDebug-Debug",
+      "configurePreset": "OCCTDebug-Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ]
 }

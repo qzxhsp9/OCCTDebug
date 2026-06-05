@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "case_id": "OCC-LOCAL-2026-0001",
+  "action": "generate_candidate_from_worktree",
+  "program": "git",
+  "arguments": [
+    "diff",
+    "--binary",
+    "HEAD"
+  ],
+  "working_directory": "<configured-patch-worktree>",
+  "exit_code": 0,
+  "exit_status": "normal",
+  "elapsed_ms": 96,
+  "success": true,
+  "candidate_available": true,
+  "candidate_patch": "artifacts/candidate_patch.diff",
+  "candidate_bytes": 412,
+  "candidate_sha256": "8ac4b7d1e5f2a4d6c8b0a1d3f5e7c9b2a4d6e8f0a1b3c5d7e9f0a2b4c6d8e0f",
+  "stdout": "logs/patch_generate.stdout.log",
+  "stderr": "logs/patch_generate.stderr.log"
+}

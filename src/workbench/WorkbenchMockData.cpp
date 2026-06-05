@@ -1,9 +1,12 @@
 #include "workbench/WorkbenchMockData.h"
 
+#include "core/geometry/TopologyCompareArtifact.h"
 #include "core/verify/VerificationResultParser.h"
 
 #include <QDir>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace occtdebug
 {
@@ -34,9 +37,77 @@ QString readTextFile(const QString& filePath)
     return QString::fromUtf8(file.readAll());
 }
 
-void loadExternalVerificationFiles(WorkbenchMockData& data)
+QString boolText(bool value)
 {
-    const QString directory = sampleCaseDirectory();
+    return value ? QStringLiteral("yes") : QStringLiteral("no");
+}
+
+QString environmentSummaryFromCaseSnapshot(const QString& directory)
+{
+    const QString snapshotPath = QDir(directory).filePath(QStringLiteral("env/env_snapshot.json"));
+    QFile file(snapshotPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        return QString();
+    }
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject())
+    {
+        return QString();
+    }
+
+    const QJsonObject root = doc.object();
+    const QJsonObject windows = root.value(QStringLiteral("windows")).toObject();
+    const QJsonObject cmake = root.value(QStringLiteral("cmake")).toObject();
+    const QJsonObject qt = root.value(QStringLiteral("qt")).toObject();
+    const QJsonObject occt = root.value(QStringLiteral("occt")).toObject();
+    const QJsonObject drawTests = root.value(QStringLiteral("draw_tests")).toObject();
+    const QJsonObject drawSmoke = drawTests.value(QStringLiteral("draw_smoke")).toObject();
+    const QJsonObject checkshapeSmoke = drawTests.value(QStringLiteral("draw_checkshape_smoke")).toObject();
+
+    const auto drawStatus = [](const QJsonObject& test) {
+        if (!test.value(QStringLiteral("result_exists")).toBool())
+        {
+            return QStringLiteral("missing_result");
+        }
+        return test.value(QStringLiteral("success_token_found")).toBool()
+            ? QStringLiteral("passed")
+            : QStringLiteral("failed_or_unknown");
+    };
+
+    QStringList lines;
+    lines << QStringLiteral("环境快照：env/env_snapshot.json");
+    lines << QStringLiteral("生成时间：%1").arg(root.value(QStringLiteral("generated_at")).toString());
+    lines << QStringLiteral("Windows：%1 %2 %3")
+            .arg(windows.value(QStringLiteral("caption")).toString(),
+                 windows.value(QStringLiteral("version")).toString(),
+                 windows.value(QStringLiteral("architecture")).toString());
+    lines << QStringLiteral("CMake：found=%1 %2")
+            .arg(boolText(cmake.value(QStringLiteral("found")).toBool()),
+                 cmake.value(QStringLiteral("version")).toString());
+    lines << QStringLiteral("Qt：exists=%1 root=%2")
+            .arg(boolText(qt.value(QStringLiteral("exists")).toBool()),
+                 qt.value(QStringLiteral("root")).toString());
+    lines << QStringLiteral("OCCT：exists=%1 root=%2")
+            .arg(boolText(occt.value(QStringLiteral("exists")).toBool()),
+                 occt.value(QStringLiteral("root")).toString());
+    lines << QStringLiteral("DRAWEXE：exists=%1 path=%2")
+            .arg(boolText(occt.value(QStringLiteral("drawexe_exists")).toBool()),
+                 occt.value(QStringLiteral("drawexe")).toString());
+    lines << QStringLiteral("DRAW smoke：%1 exit=%2 token=%3")
+            .arg(drawStatus(drawSmoke),
+                 QString::number(drawSmoke.value(QStringLiteral("exit_code")).toInt(-1)),
+                 drawSmoke.value(QStringLiteral("success_token")).toString());
+    lines << QStringLiteral("checkshape smoke：%1 exit=%2 token=%3")
+            .arg(drawStatus(checkshapeSmoke),
+                 QString::number(checkshapeSmoke.value(QStringLiteral("exit_code")).toInt(-1)),
+                 checkshapeSmoke.value(QStringLiteral("success_token")).toString());
+    return lines.join(QLatin1Char('\n'));
+}
+
+void loadExternalVerificationFiles(WorkbenchMockData& data, const QString& directory)
+{
     if (directory.isEmpty())
     {
         return;
@@ -61,6 +132,27 @@ void loadExternalVerificationFiles(WorkbenchMockData& data)
             : QStringLiteral("%1\n\n%2").arg(data.diffSummary, parsedSummary);
         data.manifest.diffSummary = data.diffSummary;
     }
+
+    const QJsonObject topologyCompare = TopologyCompareArtifact::loadForCase(directory);
+    if (topologyCompare.value(QStringLiteral("available")).toBool())
+    {
+        const QString artifact = topologyCompare.value(QStringLiteral("artifact")).toString();
+        const QString topologySummary = TopologyCompareArtifact::summaryText(topologyCompare);
+        const QString text = artifact.isEmpty()
+            ? QStringLiteral("Topology compare: %1").arg(topologySummary)
+            : QStringLiteral("Topology compare: %1\nArtifact: %2").arg(topologySummary, artifact);
+        data.diffSummary = data.diffSummary.isEmpty()
+            ? text
+            : QStringLiteral("%1\n\n%2").arg(data.diffSummary, text);
+        data.manifest.diffSummary = data.diffSummary;
+    }
+
+    const QString envSummary = environmentSummaryFromCaseSnapshot(directory);
+    if (!envSummary.isEmpty())
+    {
+        data.environmentSummary = envSummary;
+        data.manifest.environmentSummary = envSummary;
+    }
 }
 } // namespace
 
@@ -75,6 +167,7 @@ WorkbenchMockData createWorkbenchDataFromCase(const CaseManifest& manifest)
     data.platform = manifest.platform;
     data.sourceText = manifest.sourceText;
     data.reproScript = manifest.reproScript;
+    data.reproStatus = manifest.reproStatus;
     data.geometrySummary = manifest.geometrySummary;
     data.evidenceSummary = manifest.evidenceSummary;
     data.diffSummary = manifest.diffSummary;
@@ -82,22 +175,47 @@ WorkbenchMockData createWorkbenchDataFromCase(const CaseManifest& manifest)
     data.diagnosis = manifest.diagnosis;
     data.diagnosisConfidence = manifest.diagnosisConfidence;
     data.patchDiff = manifest.patchDiff;
+    data.patchReviewStatus = manifest.patchReviewStatus;
+    data.patchWorktreeRoot = manifest.patchWorktreeRoot;
+    data.patchApplyStatus = manifest.patchApplyStatus;
+    data.patchApplyLog = manifest.patchApplyLog;
+    data.patchSignoffStatus = manifest.patchSignoffStatus;
+    data.patchSignoffNote = manifest.patchSignoffNote;
     data.drawConsoleText = manifest.drawConsoleText;
     data.cmakeConsoleText = manifest.cmakeConsoleText;
     data.cases = manifest.caseList;
-    data.workflowSteps = manifest.workflowSteps;
+    data.workflowSteps = manifest.workflowState.steps.isEmpty()
+        ? manifest.workflowSteps
+        : manifest.workflowState.steps;
     data.keyInputs = manifest.keyInputs;
     data.geometryChecks = manifest.geometryChecks;
     data.evidenceItems = manifest.evidenceItems;
     data.verificationItems = manifest.verificationItems;
+    data.verificationPlan = manifest.verificationPlan;
     data.similarCases = manifest.similarCases;
     data.testgridRows = manifest.testgridRows;
+    data.patchReviewItems = manifest.patchReviewItems;
 
     if (data.cases.isEmpty())
     {
         data.cases.push_back({manifest.caseId, manifest.status, manifest.title, manifest.createdAt});
     }
 
+    return data;
+}
+
+WorkbenchMockData createWorkbenchDataFromCaseDirectory(const QString& caseDirectory, QString* error)
+{
+    const QString filePath = QDir(caseDirectory).filePath(QStringLiteral("case.json"));
+    const std::optional<CaseManifest> manifest = CaseManifest::loadFromFile(filePath, error);
+    if (!manifest.has_value())
+    {
+        return createMockWorkbenchData();
+    }
+
+    WorkbenchMockData data = createWorkbenchDataFromCase(*manifest);
+    data.workspaceRoot = QDir(caseDirectory).absolutePath();
+    loadExternalVerificationFiles(data, caseDirectory);
     return data;
 }
 
@@ -111,7 +229,7 @@ WorkbenchMockData createMockWorkbenchData()
         if (manifest.has_value())
         {
             WorkbenchMockData data = createWorkbenchDataFromCase(*manifest);
-            loadExternalVerificationFiles(data);
+            loadExternalVerificationFiles(data, sampleCaseDirectory());
             return data;
         }
     }
@@ -135,16 +253,19 @@ WorkbenchMockData createMockWorkbenchData()
     };
 
     data.workflowSteps = {
-        {QString::fromUtf8("●"), QString::fromUtf8("1 问题描述"), QString::fromUtf8("已完成")},
-        {QString::fromUtf8("●"), QString::fromUtf8("2 环境采集"), QString::fromUtf8("已完成")},
-        {QString::fromUtf8("●"), QString::fromUtf8("3 自动复现"), QString::fromUtf8("已完成")},
-        {QString::fromUtf8("●"), QString::fromUtf8("4 最小化数据"), QString::fromUtf8("已完成")},
-        {QString::fromUtf8("●"), QString::fromUtf8("5 证据收集"), QString::fromUtf8("已完成")},
-        {QString::fromUtf8("▶"), QString::fromUtf8("6 根因分析"), QString::fromUtf8("进行中")},
-        {QString::fromUtf8("○"), QString::fromUtf8("7 补丁生成"), QString::fromUtf8("未开始")},
-        {QString::fromUtf8("○"), QString::fromUtf8("8 回归验证"), QString::fromUtf8("未开始")},
-        {QString::fromUtf8("○"), QString::fromUtf8("9 归档沉淀"), QString::fromUtf8("未开始")},
+        {QStringLiteral("problem"), QString::fromUtf8("●"), QString::fromUtf8("1 问题描述"), QString::fromUtf8("已完成"), QString()},
+        {QStringLiteral("environment"), QString::fromUtf8("●"), QString::fromUtf8("2 环境采集"), QString::fromUtf8("已完成"), QString()},
+        {QStringLiteral("repro"), QString::fromUtf8("●"), QString::fromUtf8("3 自动复现"), QString::fromUtf8("已完成"), QString()},
+        {QStringLiteral("minimize"), QString::fromUtf8("●"), QString::fromUtf8("4 最小化数据"), QString::fromUtf8("已完成"), QString()},
+        {QStringLiteral("evidence"), QString::fromUtf8("●"), QString::fromUtf8("5 证据收集"), QString::fromUtf8("已完成"), QString()},
+        {QStringLiteral("diagnosis"), QString::fromUtf8("▶"), QString::fromUtf8("6 根因分析"), QString::fromUtf8("进行中"), QString()},
+        {QStringLiteral("patch"), QString::fromUtf8("○"), QString::fromUtf8("7 补丁生成"), QString::fromUtf8("未开始"), QString()},
+        {QStringLiteral("verify"), QString::fromUtf8("○"), QString::fromUtf8("8 回归验证"), QString::fromUtf8("未开始"), QString()},
+        {QStringLiteral("archive"), QString::fromUtf8("○"), QString::fromUtf8("9 归档沉淀"), QString::fromUtf8("未开始"), QString()},
     };
+    data.manifest.workflowSteps = data.workflowSteps;
+    data.manifest.workflowState.activeStepId = QStringLiteral("diagnosis");
+    data.manifest.workflowState.steps = data.workflowSteps;
 
     data.keyInputs = {
         {QString::fromUtf8("输入模型"), QStringLiteral("valve_body_min.brep")},
@@ -261,7 +382,7 @@ WorkbenchMockData createMockWorkbenchData()
         {QString::fromUtf8("总计"), QStringLiteral("298"), QStringLiteral("293"), QStringLiteral("2"), QStringLiteral("98.3%")},
     };
 
-    loadExternalVerificationFiles(data);
+    loadExternalVerificationFiles(data, sampleCaseDirectory());
     return data;
 }
 } // namespace occtdebug

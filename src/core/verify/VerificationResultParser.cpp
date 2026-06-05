@@ -1,5 +1,7 @@
 #include "core/verify/VerificationResultParser.h"
 
+#include <QMap>
+#include <QSet>
 #include <QRegularExpression>
 #include <QStringList>
 
@@ -31,6 +33,13 @@ QString atOrEmpty(const QStringList& values, int index)
     return index >= 0 && index < values.size() ? values[index].trimmed() : QString();
 }
 
+int intValue(const QString& value)
+{
+    bool ok = false;
+    const int out = value.toInt(&ok);
+    return ok ? out : 0;
+}
+
 bool isHeaderOrComment(const QString& line)
 {
     const QString trimmed = line.trimmed();
@@ -44,6 +53,14 @@ bool isHeaderOrComment(const QString& line)
         || lower.startsWith(QStringLiteral("module,"))
         || lower.startsWith(QStringLiteral("name "))
         || lower.startsWith(QStringLiteral("name,"));
+}
+
+bool isAggregateModule(const QString& module)
+{
+    const QString lower = module.trimmed().toLower();
+    return lower == QStringLiteral("total")
+        || lower == QString::fromUtf8("总计")
+        || lower == QStringLiteral("summary");
 }
 
 QString passRate(const QString& runCount, const QString& passCount, const QString& fallback)
@@ -72,6 +89,39 @@ QString TestdiffSummary::summaryText() const
         .arg(entries.size())
         .arg(changedCount)
         .arg(failedCount);
+}
+
+bool TestgridComparison::isAvailable() const
+{
+    return !rows.isEmpty();
+}
+
+bool TestgridComparison::hasRegression() const
+{
+    return failDelta > 0;
+}
+
+QString TestgridComparison::summaryText() const
+{
+    if (!isAvailable())
+    {
+        return QStringLiteral("before/after comparison unavailable");
+    }
+    return QStringLiteral("before/after run %1->%2 pass %3->%4 fail %5->%6 delta_fail=%7")
+        .arg(beforeRunTotal)
+        .arg(afterRunTotal)
+        .arg(beforePassTotal)
+        .arg(afterPassTotal)
+        .arg(beforeFailTotal)
+        .arg(afterFailTotal)
+        .arg(failDelta);
+}
+
+QString VerificationTimingSummary::summaryText() const
+{
+    return QStringLiteral("timing entries=%1 total_elapsed_ms=%2")
+        .arg(entries.size())
+        .arg(totalElapsedMs);
 }
 
 QVector<TestgridRow> VerificationResultParser::parseTestgridText(const QString& text)
@@ -142,6 +192,207 @@ TestdiffSummary VerificationResultParser::parseTestdiffText(const QString& text)
         }
     }
 
+    return summary;
+}
+
+TestgridComparison VerificationResultParser::compareTestgridRows(const QVector<TestgridRow>& beforeRows,
+                                                                  const QVector<TestgridRow>& afterRows)
+{
+    TestgridComparison comparison;
+    if (beforeRows.isEmpty() || afterRows.isEmpty())
+    {
+        return comparison;
+    }
+
+    QMap<QString, TestgridRow> beforeByModule;
+    QMap<QString, TestgridRow> afterByModule;
+    QStringList order;
+    QSet<QString> seen;
+
+    const auto addOrder = [&order, &seen](const QString& module) {
+        const QString key = module.trimmed();
+        if (!key.isEmpty() && !seen.contains(key))
+        {
+            seen.insert(key);
+            order.push_back(key);
+        }
+    };
+
+    for (const TestgridRow& row : beforeRows)
+    {
+        const QString key = row.module.trimmed();
+        if (key.isEmpty())
+        {
+            continue;
+        }
+        beforeByModule.insert(key, row);
+        addOrder(key);
+        if (!isAggregateModule(key))
+        {
+            comparison.beforeRunTotal += intValue(row.runCount);
+            comparison.beforePassTotal += intValue(row.passCount);
+            comparison.beforeFailTotal += intValue(row.failCount);
+        }
+    }
+    for (const TestgridRow& row : afterRows)
+    {
+        const QString key = row.module.trimmed();
+        if (key.isEmpty())
+        {
+            continue;
+        }
+        afterByModule.insert(key, row);
+        addOrder(key);
+        if (!isAggregateModule(key))
+        {
+            comparison.afterRunTotal += intValue(row.runCount);
+            comparison.afterPassTotal += intValue(row.passCount);
+            comparison.afterFailTotal += intValue(row.failCount);
+        }
+    }
+
+    comparison.passDelta = comparison.afterPassTotal - comparison.beforePassTotal;
+    comparison.failDelta = comparison.afterFailTotal - comparison.beforeFailTotal;
+
+    for (const QString& module : order)
+    {
+        const bool hasBefore = beforeByModule.contains(module);
+        const bool hasAfter = afterByModule.contains(module);
+        const TestgridRow before = beforeByModule.value(module);
+        const TestgridRow after = afterByModule.value(module);
+        const int beforeFail = intValue(before.failCount);
+        const int afterFail = intValue(after.failCount);
+        const int failDelta = afterFail - beforeFail;
+        QString status = QStringLiteral("unchanged");
+        if (!hasBefore)
+        {
+            status = QStringLiteral("new_after");
+        }
+        else if (!hasAfter)
+        {
+            status = QStringLiteral("missing_after");
+        }
+        else if (failDelta > 0 && beforeFail == 0)
+        {
+            status = QStringLiteral("new_failure");
+        }
+        else if (failDelta > 0)
+        {
+            status = QStringLiteral("regressed");
+        }
+        else if (failDelta < 0)
+        {
+            status = QStringLiteral("improved");
+        }
+        else if (afterFail > 0)
+        {
+            status = QStringLiteral("unchanged_failed");
+        }
+        else
+        {
+            status = QStringLiteral("unchanged_passed");
+        }
+
+        comparison.rows.push_back({
+            module,
+            before.runCount,
+            before.passCount,
+            before.failCount,
+            after.runCount,
+            after.passCount,
+            after.failCount,
+            intValue(after.passCount) - intValue(before.passCount),
+            failDelta,
+            status,
+        });
+    }
+
+    return comparison;
+}
+
+QVector<VerificationFailureDetail> VerificationResultParser::failureDetailsForTestgridRows(const QVector<TestgridRow>& rows,
+                                                                                            const QString& artifact)
+{
+    QVector<VerificationFailureDetail> details;
+    for (const TestgridRow& row : rows)
+    {
+        if (isAggregateModule(row.module) || intValue(row.failCount) <= 0)
+        {
+            continue;
+        }
+
+        details.push_back({
+            QStringLiteral("testgrid"),
+            row.module,
+            QStringLiteral("failed"),
+            QStringLiteral("%1 failed out of %2").arg(row.failCount, row.runCount),
+            artifact,
+        });
+    }
+    return details;
+}
+
+QVector<VerificationFailureDetail> VerificationResultParser::failureDetailsForTestdiff(const TestdiffSummary& summary,
+                                                                                       const QString& artifact)
+{
+    QVector<VerificationFailureDetail> details;
+    for (const TestdiffEntry& entry : summary.entries)
+    {
+        const QString status = entry.status.toLower();
+        if (!status.contains(QStringLiteral("fail"))
+            && !status.contains(QStringLiteral("error"))
+            && !status.contains(QStringLiteral("diff"))
+            && !status.contains(QStringLiteral("changed")))
+        {
+            continue;
+        }
+
+        const QString note = QStringList {entry.metric, entry.note}
+            .join(QLatin1Char(' '))
+            .trimmed();
+        details.push_back({
+            QStringLiteral("testdiff"),
+            entry.name,
+            entry.status,
+            note.isEmpty() ? QStringLiteral("testdiff item requires review") : note,
+            artifact,
+        });
+    }
+    return details;
+}
+
+QVector<VerificationFailureDetail> VerificationResultParser::failureDetailsForComparison(const TestgridComparison& comparison,
+                                                                                         const QString& artifact)
+{
+    QVector<VerificationFailureDetail> details;
+    for (const TestgridComparisonRow& row : comparison.rows)
+    {
+        if (isAggregateModule(row.module) || row.failDelta <= 0)
+        {
+            continue;
+        }
+
+        details.push_back({
+            QStringLiteral("before_after"),
+            row.module,
+            row.status.isEmpty() ? QStringLiteral("regressed") : row.status,
+            QStringLiteral("fail %1 -> %2 (delta %3)")
+                .arg(row.beforeFailCount, row.afterFailCount)
+                .arg(row.failDelta),
+            artifact,
+        });
+    }
+    return details;
+}
+
+VerificationTimingSummary VerificationResultParser::timingSummary(const QVector<VerificationTimingEntry>& entries)
+{
+    VerificationTimingSummary summary;
+    summary.entries = entries;
+    for (const VerificationTimingEntry& entry : entries)
+    {
+        summary.totalElapsedMs += entry.elapsedMs;
+    }
     return summary;
 }
 } // namespace occtdebug

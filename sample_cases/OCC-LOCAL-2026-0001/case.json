@@ -28,51 +28,145 @@
   ],
   "workflow": [
     {
+      "id": "problem_intake",
       "marker": "[done]",
       "title": "1 Problem intake",
-      "state": "Done"
+      "state": "Done",
+      "note": ""
     },
     {
+      "id": "environment_capture",
       "marker": "[done]",
       "title": "2 Environment capture",
-      "state": "Done"
+      "state": "Done",
+      "note": ""
     },
     {
+      "id": "draw_reproduction",
       "marker": "[done]",
       "title": "3 DRAW reproduction",
-      "state": "Done"
+      "state": "Done",
+      "note": ""
     },
     {
+      "id": "minimal_data",
       "marker": "[done]",
       "title": "4 Minimal data",
-      "state": "Done"
+      "state": "Done",
+      "note": ""
     },
     {
+      "id": "evidence_collection",
       "marker": "[done]",
       "title": "5 Evidence collection",
-      "state": "Done"
+      "state": "Done",
+      "note": ""
     },
     {
+      "id": "root_cause_analysis",
       "marker": "[active]",
       "title": "6 Root-cause analysis",
-      "state": "In progress"
+      "state": "In progress",
+      "note": ""
     },
     {
+      "id": "patch_candidate",
       "marker": "[todo]",
       "title": "7 Patch candidate",
-      "state": "Not started"
+      "state": "Not started",
+      "note": ""
     },
     {
+      "id": "regression_validation",
       "marker": "[todo]",
       "title": "8 Regression validation",
-      "state": "Not started"
+      "state": "Not started",
+      "note": ""
     },
     {
+      "id": "knowledge_archive",
       "marker": "[todo]",
       "title": "9 Knowledge archive",
-      "state": "Not started"
+      "state": "Not started",
+      "note": ""
     }
   ],
+  "workflow_state": {
+    "active_step_id": "root_cause_analysis",
+    "steps": [
+      {
+        "id": "problem_intake",
+        "marker": "[done]",
+        "title": "1 Problem intake",
+        "state": "Done",
+        "note": ""
+      },
+      {
+        "id": "environment_capture",
+        "marker": "[done]",
+        "title": "2 Environment capture",
+        "state": "Done",
+        "note": ""
+      },
+      {
+        "id": "draw_reproduction",
+        "marker": "[done]",
+        "title": "3 DRAW reproduction",
+        "state": "Done",
+        "note": ""
+      },
+      {
+        "id": "minimal_data",
+        "marker": "[done]",
+        "title": "4 Minimal data",
+        "state": "Done",
+        "note": ""
+      },
+      {
+        "id": "evidence_collection",
+        "marker": "[done]",
+        "title": "5 Evidence collection",
+        "state": "Done",
+        "note": ""
+      },
+      {
+        "id": "root_cause_analysis",
+        "marker": "[active]",
+        "title": "6 Root-cause analysis",
+        "state": "In progress",
+        "note": ""
+      },
+      {
+        "id": "patch_candidate",
+        "marker": "[todo]",
+        "title": "7 Patch candidate",
+        "state": "Not started",
+        "note": ""
+      },
+      {
+        "id": "regression_validation",
+        "marker": "[todo]",
+        "title": "8 Regression validation",
+        "state": "Not started",
+        "note": ""
+      },
+      {
+        "id": "knowledge_archive",
+        "marker": "[todo]",
+        "title": "9 Knowledge archive",
+        "state": "Not started",
+        "note": ""
+      }
+    ]
+  },
+  "workspace_layout": {
+    "active_center_tab": "source",
+    "active_bottom_tab": "draw",
+    "left_width": 300,
+    "center_width": 980,
+    "right_width": 380,
+    "bottom_height": 235
+  },
   "key_inputs": [
     {
       "label": "Input model",
@@ -103,7 +197,7 @@
       {
         "name": "Null Curve",
         "status": "Fail",
-        "note": "1"
+        "note": "E125"
       },
       {
         "name": "Invalid P-Curve",
@@ -129,19 +223,25 @@
         "type": "DRAW",
         "title": "Runtime log",
         "summary": "Null curve exception is reproducible",
-        "link": "logs/draw.log"
+        "link": "logs/draw.log:6",
+        "log_file": "logs/draw.log",
+        "log_line": 6
       },
       {
         "type": "Shape",
         "title": "Geometry check",
         "summary": "Edge E125 misses its 3D curve",
-        "link": "evidence/shape.json"
+        "link": "evidence/shape.json",
+        "geometry_object": "E125"
       },
       {
         "type": "Source",
         "title": "Source location",
         "summary": "BRep_Tool::Curve returns null",
-        "link": "BRepFilletAPI_MakeFillet.cxx:2271"
+        "link": "BRepFilletAPI_MakeFillet.cxx:2271",
+        "source_file": "BRepFilletAPI_MakeFillet.cxx",
+        "source_line": 2271,
+        "stack_frame": "BRepFilletAPI_MakeFillet::Build at BRepFilletAPI_MakeFillet.cxx:2271"
       }
     ]
   },
@@ -156,7 +256,28 @@
     "confidence": 86
   },
   "patch": {
-    "diff": "BRepFilletAPI_MakeFillet.cxx\n@@ -2268,7 +2268,11 @@\n  Handle(Geom_Curve) aC = BRep_Tool::Curve(aNewEdge, aFirst, aLast);\n- if (aC.IsNull())\n+ if (aC.IsNull())\n  {\n+   // Candidate patch: record the failing edge and try a local recovery path.\n+   TryRecoverCurve(aNewEdge, aC);\n+   if (aC.IsNull())\n    SetError(TopAbs_EDGE, aNewEdge, Fillet_NullCurve);\n    return;\n  }"
+    "diff": "BRepFilletAPI_MakeFillet.cxx\n@@ -2268,7 +2268,11 @@\n  Handle(Geom_Curve) aC = BRep_Tool::Curve(aNewEdge, aFirst, aLast);\n- if (aC.IsNull())\n+ if (aC.IsNull())\n  {\n+   // Candidate patch: record the failing edge and try a local recovery path.\n+   TryRecoverCurve(aNewEdge, aC);\n+   if (aC.IsNull())\n    SetError(TopAbs_EDGE, aNewEdge, Fillet_NullCurve);\n    return;\n  }",
+    "review_status": "Approved",
+    "signoff_status": "blocked",
+    "signoff_note": "Verification still has failing testgrid gates; sample patch is not ready to sign off.",
+    "review_items": [
+      {
+        "label": "Candidate patch captured",
+        "value": "Done: Patch diff is attached to the case."
+      },
+      {
+        "label": "Root-cause evidence linked",
+        "value": "Done: DRAW log, shape check, and source location are linked."
+      },
+      {
+        "label": "Reviewer decision",
+        "value": "Approved: Reviewer accepted the candidate direction."
+      },
+      {
+        "label": "Regression gate",
+        "value": "Ready: Requires verification sign-off."
+      }
+    ]
   },
   "verification": {
     "items": [
@@ -173,6 +294,10 @@
         "value": "293 / 298"
       },
       {
+        "label": "patch generation",
+        "value": "generated bytes=412 sha256=8ac4b7d1e5f2"
+      },
+      {
         "label": "Performance delta",
         "value": "+0.8%"
       },
@@ -180,7 +305,18 @@
         "label": "Regression risk",
         "value": "Low"
       }
-    ]
+    ],
+    "testgrid_plan": {
+      "testgrid_root": "",
+      "testgrid_executable": "",
+      "testgrid_arguments": "{group} {grid} {case}",
+      "testgrid_group": "bugs",
+      "testgrid_grid": "modalg",
+      "testgrid_case": "fillet_null_curve",
+      "testdiff_executable": "",
+      "testdiff_arguments": "--group {group} --grid {grid} --case {case} --out {output}",
+      "testdiff_output_root": ""
+    }
   },
   "similar_cases": [
     {

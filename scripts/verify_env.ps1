@@ -95,12 +95,22 @@ function Get-VisualStudioSummary {
         }
     }
 
-    $devCmd = Find-FirstExistingPath @(
-        "D:\Programming\VisualStudio\2026\Community\Common7\Tools\VsDevCmd.bat",
-        "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat",
-        "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat",
-        "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
-    )
+    $devCmdCandidates = @()
+    if ($env:VSINSTALLDIR) {
+        $devCmdCandidates += Join-Path $env:VSINSTALLDIR "Common7\Tools\VsDevCmd.bat"
+    }
+    foreach ($programFilesRoot in @(${env:ProgramFiles}, ${env:ProgramFiles(x86)})) {
+        if (-not $programFilesRoot) {
+            continue
+        }
+        foreach ($version in @("2026", "2022")) {
+            foreach ($edition in @("Community", "Professional", "Enterprise", "BuildTools")) {
+                $devCmdCandidates += Join-Path $programFilesRoot "Microsoft Visual Studio\$version\$edition\Common7\Tools\VsDevCmd.bat"
+            }
+        }
+    }
+
+    $devCmd = Find-FirstExistingPath $devCmdCandidates
 
     return [ordered]@{
         found = [bool]$devCmd

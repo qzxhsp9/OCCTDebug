@@ -130,7 +130,11 @@ $resultJsonPath = Join-Path $logDir "$safeTestName.result.json"
 
 function Write-SmokeLog {
     param([string]$Message)
-    Add-Content -LiteralPath $logPath -Value $Message -Encoding UTF8
+    [System.IO.File]::AppendAllText(
+        $logPath,
+        "$Message`r`n",
+        [System.Text.UTF8Encoding]::new($false)
+    )
 }
 
 function Fail-Smoke {

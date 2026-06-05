@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "workspace": {
+    "build_root": "out/build/debug",
+    "case_root": "cases",
+    "artifact_root": "artifacts"
+  },
+  "occt": {
+    "source_root": "",
+    "build_root": "",
+    "install_root": "depends/occt",
+    "casroot": "depends/occt",
+    "drawexe": ""
+  },
+  "third_party": {
+    "freetype_root": "depends/occt_3rdparty/freetype-2.13.3-x64",
+    "tcltk_root": "depends/occt_3rdparty/tcltk-8.6.15-x64"
+  },
+  "qt": {
+    "root": ""
+  },
+  "compiler": {
+    "developer_command": "",
+    "generator": "Ninja",
+    "architecture": "x64"
+  },
+  "runtime": {
+    "default_build_type": "Debug",
+    "max_parallel_jobs": 0
+  },
+  "verify": {
+    "testgrid": {
+      "root": "",
+      "executable": "",
+      "arguments": "{group} {grid} {case}",
+      "group": "",
+      "grid": "",
+      "case": "",
+      "testdiff_executable": "",
+      "testdiff_arguments": "--group {group} --grid {grid} --case {case} --out {output}",
+      "testdiff_output_root": ""
+    }
+  },
+  "patch": {
+    "worktree_root": ""
+  },
+  "privacy": {
+    "default_case_level": "internal",
+    "allow_external_network": false
+  }
+}

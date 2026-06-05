@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QSaveFile>
 
 namespace occtdebug
 {
@@ -58,6 +59,7 @@ QVector<WorkflowStep> readWorkflowSteps(const QJsonArray& array)
 {
     QVector<WorkflowStep> out;
     out.reserve(array.size());
+    int index = 1;
     for (const QJsonValue& value : array)
     {
         if (!value.isObject())
@@ -66,11 +68,56 @@ QVector<WorkflowStep> readWorkflowSteps(const QJsonArray& array)
         }
         const QJsonObject object = value.toObject();
         out.push_back({
+            stringValue(object, "id", QStringLiteral("step_%1").arg(index)),
             stringValue(object, "marker"),
             stringValue(object, "title"),
             stringValue(object, "state"),
+            stringValue(object, "note"),
         });
+        ++index;
     }
+    return out;
+}
+
+WorkflowState readWorkflowState(const QJsonObject& object, const QVector<WorkflowStep>& fallbackSteps)
+{
+    WorkflowState out;
+    out.activeStepId = stringValue(object, "active_step_id");
+    out.steps = readWorkflowSteps(arrayValue(object, "steps"));
+    if (out.steps.isEmpty())
+    {
+        out.steps = fallbackSteps;
+    }
+    if (out.activeStepId.isEmpty())
+    {
+        for (const WorkflowStep& step : out.steps)
+        {
+            if (step.marker.contains(QStringLiteral("active"), Qt::CaseInsensitive)
+                || step.marker.contains(QStringLiteral("▶"))
+                || step.state.contains(QStringLiteral("progress"), Qt::CaseInsensitive)
+                || step.state.contains(QString::fromUtf8("进行中")))
+            {
+                out.activeStepId = step.id;
+                break;
+            }
+        }
+    }
+    if (out.activeStepId.isEmpty() && !out.steps.isEmpty())
+    {
+        out.activeStepId = out.steps.first().id;
+    }
+    return out;
+}
+
+WorkspaceLayout readWorkspaceLayout(const QJsonObject& object)
+{
+    WorkspaceLayout out;
+    out.activeCenterTab = stringValue(object, "active_center_tab", QStringLiteral("source"));
+    out.activeBottomTab = stringValue(object, "active_bottom_tab", QStringLiteral("draw"));
+    out.leftWidth = intValue(object, "left_width", out.leftWidth);
+    out.centerWidth = intValue(object, "center_width", out.centerWidth);
+    out.rightWidth = intValue(object, "right_width", out.rightWidth);
+    out.bottomHeight = intValue(object, "bottom_height", out.bottomHeight);
     return out;
 }
 
@@ -113,6 +160,28 @@ QVector<GeometryCheck> readGeometryChecks(const QJsonArray& array)
     return out;
 }
 
+QVector<InputFileRecord> readInputFiles(const QJsonArray& array)
+{
+    QVector<InputFileRecord> out;
+    out.reserve(array.size());
+    for (const QJsonValue& value : array)
+    {
+        if (!value.isObject())
+        {
+            continue;
+        }
+        const QJsonObject object = value.toObject();
+        out.push_back({
+            stringValue(object, "path"),
+            stringValue(object, "original_name"),
+            stringValue(object, "sha256"),
+            static_cast<qint64>(object.value(QStringLiteral("bytes")).toDouble(0.0)),
+            stringValue(object, "imported_at"),
+        });
+    }
+    return out;
+}
+
 QVector<SimilarCase> readSimilarCases(const QJsonArray& array)
 {
     QVector<SimilarCase> out;
@@ -149,6 +218,12 @@ QVector<EvidenceRecord> readEvidenceRecords(const QJsonArray& array)
             stringValue(object, "title"),
             stringValue(object, "summary"),
             stringValue(object, "link"),
+            stringValue(object, "source_file"),
+            intValue(object, "source_line"),
+            stringValue(object, "log_file"),
+            intValue(object, "log_line"),
+            stringValue(object, "stack_frame"),
+            stringValue(object, "geometry_object"),
         });
     }
     return out;
@@ -176,6 +251,33 @@ QVector<TestgridRow> readTestgridRows(const QJsonArray& array)
     return out;
 }
 
+VerificationPlan readVerificationPlan(const QJsonObject& object)
+{
+    return {
+        stringValue(object, "testgrid_root"),
+        stringValue(object, "testgrid_executable"),
+        stringValue(object, "testgrid_arguments"),
+        stringValue(object, "testgrid_group"),
+        stringValue(object, "testgrid_grid"),
+        stringValue(object, "testgrid_case"),
+        stringValue(object, "testdiff_executable"),
+        stringValue(object, "testdiff_arguments"),
+        stringValue(object, "testdiff_output_root"),
+    };
+}
+
+ReproStatus readReproStatus(const QJsonObject& object)
+{
+    return {
+        stringValue(object, "overall"),
+        stringValue(object, "draw"),
+        stringValue(object, "cpp"),
+        stringValue(object, "testgrid"),
+        stringValue(object, "updated_at"),
+        stringValue(object, "summary"),
+    };
+}
+
 QJsonArray writeCaseSummaries(const QVector<CaseSummary>& values)
 {
     QJsonArray array;
@@ -197,12 +299,34 @@ QJsonArray writeWorkflowSteps(const QVector<WorkflowStep>& values)
     for (const WorkflowStep& value : values)
     {
         array.append(QJsonObject {
+            {QStringLiteral("id"), value.id},
             {QStringLiteral("marker"), value.marker},
             {QStringLiteral("title"), value.title},
             {QStringLiteral("state"), value.state},
+            {QStringLiteral("note"), value.note},
         });
     }
     return array;
+}
+
+QJsonObject writeWorkflowState(const WorkflowState& value)
+{
+    return {
+        {QStringLiteral("active_step_id"), value.activeStepId},
+        {QStringLiteral("steps"), writeWorkflowSteps(value.steps)},
+    };
+}
+
+QJsonObject writeWorkspaceLayout(const WorkspaceLayout& value)
+{
+    return {
+        {QStringLiteral("active_center_tab"), value.activeCenterTab},
+        {QStringLiteral("active_bottom_tab"), value.activeBottomTab},
+        {QStringLiteral("left_width"), value.leftWidth},
+        {QStringLiteral("center_width"), value.centerWidth},
+        {QStringLiteral("right_width"), value.rightWidth},
+        {QStringLiteral("bottom_height"), value.bottomHeight},
+    };
 }
 
 QJsonArray writeLabelValues(const QVector<LabelValue>& values)
@@ -232,6 +356,22 @@ QJsonArray writeGeometryChecks(const QVector<GeometryCheck>& values)
     return array;
 }
 
+QJsonArray writeInputFiles(const QVector<InputFileRecord>& values)
+{
+    QJsonArray array;
+    for (const InputFileRecord& value : values)
+    {
+        array.append(QJsonObject {
+            {QStringLiteral("path"), value.path},
+            {QStringLiteral("original_name"), value.originalName},
+            {QStringLiteral("sha256"), value.sha256},
+            {QStringLiteral("bytes"), static_cast<double>(value.bytes)},
+            {QStringLiteral("imported_at"), value.importedAt},
+        });
+    }
+    return array;
+}
+
 QJsonArray writeSimilarCases(const QVector<SimilarCase>& values)
 {
     QJsonArray array;
@@ -251,12 +391,37 @@ QJsonArray writeEvidenceRecords(const QVector<EvidenceRecord>& values)
     QJsonArray array;
     for (const EvidenceRecord& value : values)
     {
-        array.append(QJsonObject {
+        QJsonObject object {
             {QStringLiteral("type"), value.type},
             {QStringLiteral("title"), value.title},
             {QStringLiteral("summary"), value.summary},
             {QStringLiteral("link"), value.link},
-        });
+        };
+        if (!value.sourceFile.isEmpty())
+        {
+            object.insert(QStringLiteral("source_file"), value.sourceFile);
+        }
+        if (value.sourceLine > 0)
+        {
+            object.insert(QStringLiteral("source_line"), value.sourceLine);
+        }
+        if (!value.logFile.isEmpty())
+        {
+            object.insert(QStringLiteral("log_file"), value.logFile);
+        }
+        if (value.logLine > 0)
+        {
+            object.insert(QStringLiteral("log_line"), value.logLine);
+        }
+        if (!value.stackFrame.isEmpty())
+        {
+            object.insert(QStringLiteral("stack_frame"), value.stackFrame);
+        }
+        if (!value.geometryObject.isEmpty())
+        {
+            object.insert(QStringLiteral("geometry_object"), value.geometryObject);
+        }
+        array.append(object);
     }
     return array;
 }
@@ -275,6 +440,33 @@ QJsonArray writeTestgridRows(const QVector<TestgridRow>& values)
         });
     }
     return array;
+}
+
+QJsonObject writeVerificationPlan(const VerificationPlan& value)
+{
+    return {
+        {QStringLiteral("testgrid_root"), value.testgridRoot},
+        {QStringLiteral("testgrid_executable"), value.testgridExecutable},
+        {QStringLiteral("testgrid_arguments"), value.testgridArguments},
+        {QStringLiteral("testgrid_group"), value.testgridGroup},
+        {QStringLiteral("testgrid_grid"), value.testgridGrid},
+        {QStringLiteral("testgrid_case"), value.testgridCase},
+        {QStringLiteral("testdiff_executable"), value.testdiffExecutable},
+        {QStringLiteral("testdiff_arguments"), value.testdiffArguments},
+        {QStringLiteral("testdiff_output_root"), value.testdiffOutputRoot},
+    };
+}
+
+QJsonObject writeReproStatus(const ReproStatus& value)
+{
+    return {
+        {QStringLiteral("overall"), value.overall},
+        {QStringLiteral("draw"), value.draw},
+        {QStringLiteral("cpp"), value.cpp},
+        {QStringLiteral("testgrid"), value.testgrid},
+        {QStringLiteral("updated_at"), value.updatedAt},
+        {QStringLiteral("summary"), value.summary},
+    };
 }
 } // namespace
 
@@ -300,13 +492,25 @@ std::optional<CaseManifest> CaseManifest::fromJson(const QJsonObject& object, QS
 
     manifest.caseList = readCaseSummaries(arrayValue(object, "case_list"));
     manifest.workflowSteps = readWorkflowSteps(arrayValue(object, "workflow"));
+    manifest.workflowState = readWorkflowState(objectValue(object, "workflow_state"), manifest.workflowSteps);
+    if (manifest.workflowSteps.isEmpty())
+    {
+        manifest.workflowSteps = manifest.workflowState.steps;
+    }
+    if (manifest.workflowState.steps.isEmpty())
+    {
+        manifest.workflowState.steps = manifest.workflowSteps;
+    }
+    manifest.workspaceLayout = readWorkspaceLayout(objectValue(object, "workspace_layout"));
     manifest.keyInputs = readLabelValues(arrayValue(object, "key_inputs"));
+    manifest.inputFiles = readInputFiles(arrayValue(objectValue(object, "input"), "files"));
 
     const QJsonObject source = objectValue(object, "source");
     manifest.sourceText = stringValue(source, "text");
 
     const QJsonObject repro = objectValue(object, "repro");
     manifest.reproScript = stringValue(repro, "script");
+    manifest.reproStatus = readReproStatus(objectValue(repro, "status"));
 
     const QJsonObject geometry = objectValue(object, "geometry");
     manifest.geometrySummary = stringValue(geometry, "summary");
@@ -328,9 +532,17 @@ std::optional<CaseManifest> CaseManifest::fromJson(const QJsonObject& object, QS
 
     const QJsonObject patch = objectValue(object, "patch");
     manifest.patchDiff = stringValue(patch, "diff");
+    manifest.patchReviewStatus = stringValue(patch, "review_status");
+    manifest.patchWorktreeRoot = stringValue(patch, "worktree_root");
+    manifest.patchApplyStatus = stringValue(patch, "apply_status");
+    manifest.patchApplyLog = stringValue(patch, "apply_log");
+    manifest.patchSignoffStatus = stringValue(patch, "signoff_status");
+    manifest.patchSignoffNote = stringValue(patch, "signoff_note");
+    manifest.patchReviewItems = readLabelValues(arrayValue(patch, "review_items"));
 
     const QJsonObject verification = objectValue(object, "verification");
     manifest.verificationItems = readLabelValues(arrayValue(verification, "items"));
+    manifest.verificationPlan = readVerificationPlan(objectValue(verification, "testgrid_plan"));
 
     manifest.similarCases = readSimilarCases(arrayValue(object, "similar_cases"));
 
@@ -368,6 +580,31 @@ std::optional<CaseManifest> CaseManifest::loadFromFile(const QString& filePath, 
     return fromJson(document.object(), error);
 }
 
+bool CaseManifest::saveToFile(const QString& filePath, QString* error) const
+{
+    QSaveFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        if (error != nullptr)
+        {
+            *error = QStringLiteral("cannot write %1: %2").arg(filePath, file.errorString());
+        }
+        return false;
+    }
+
+    const QJsonDocument document(toJson());
+    file.write(document.toJson(QJsonDocument::Indented));
+    if (!file.commit())
+    {
+        if (error != nullptr)
+        {
+            *error = QStringLiteral("cannot commit %1: %2").arg(filePath, file.errorString());
+        }
+        return false;
+    }
+    return true;
+}
+
 QJsonObject CaseManifest::toJson() const
 {
     return QJsonObject {
@@ -380,9 +617,15 @@ QJsonObject CaseManifest::toJson() const
         {QStringLiteral("platform"), platform},
         {QStringLiteral("case_list"), writeCaseSummaries(caseList)},
         {QStringLiteral("workflow"), writeWorkflowSteps(workflowSteps)},
+        {QStringLiteral("workflow_state"), writeWorkflowState(workflowState)},
+        {QStringLiteral("workspace_layout"), writeWorkspaceLayout(workspaceLayout)},
         {QStringLiteral("key_inputs"), writeLabelValues(keyInputs)},
+        {QStringLiteral("input"), QJsonObject {{QStringLiteral("files"), writeInputFiles(inputFiles)}}},
         {QStringLiteral("source"), QJsonObject {{QStringLiteral("text"), sourceText}}},
-        {QStringLiteral("repro"), QJsonObject {{QStringLiteral("script"), reproScript}}},
+        {QStringLiteral("repro"), QJsonObject {
+             {QStringLiteral("script"), reproScript},
+             {QStringLiteral("status"), writeReproStatus(reproStatus)},
+         }},
         {QStringLiteral("geometry"), QJsonObject {
              {QStringLiteral("summary"), geometrySummary},
              {QStringLiteral("checks"), writeGeometryChecks(geometryChecks)},
@@ -397,8 +640,20 @@ QJsonObject CaseManifest::toJson() const
              {QStringLiteral("summary"), diagnosis},
              {QStringLiteral("confidence"), diagnosisConfidence},
          }},
-        {QStringLiteral("patch"), QJsonObject {{QStringLiteral("diff"), patchDiff}}},
-        {QStringLiteral("verification"), QJsonObject {{QStringLiteral("items"), writeLabelValues(verificationItems)}}},
+        {QStringLiteral("patch"), QJsonObject {
+             {QStringLiteral("diff"), patchDiff},
+             {QStringLiteral("review_status"), patchReviewStatus},
+             {QStringLiteral("worktree_root"), patchWorktreeRoot},
+             {QStringLiteral("apply_status"), patchApplyStatus},
+             {QStringLiteral("apply_log"), patchApplyLog},
+             {QStringLiteral("signoff_status"), patchSignoffStatus},
+             {QStringLiteral("signoff_note"), patchSignoffNote},
+             {QStringLiteral("review_items"), writeLabelValues(patchReviewItems)},
+         }},
+        {QStringLiteral("verification"), QJsonObject {
+             {QStringLiteral("items"), writeLabelValues(verificationItems)},
+             {QStringLiteral("testgrid_plan"), writeVerificationPlan(verificationPlan)},
+         }},
         {QStringLiteral("similar_cases"), writeSimilarCases(similarCases)},
         {QStringLiteral("consoles"), QJsonObject {
              {QStringLiteral("draw"), drawConsoleText},

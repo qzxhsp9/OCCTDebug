@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "basis": "Greedy same-type matching: exact BREP SHA-256 first, then object_id/orientation/children/index score",
+  "minimum_score": 0.5,
+  "before_source": "baseline_filleted_shape",
+  "after_source": "patched_filleted_shape",
+  "counts_delta": {
+    "shape": 0,
+    "vertex": 0,
+    "edge": 0,
+    "wire": 0,
+    "face": 0,
+    "shell": 0,
+    "solid": 0,
+    "compsolid": 0,
+    "compound": 0
+  },
+  "summary": {
+    "status": "renamed_or_modified",
+    "before_records": 143,
+    "after_records": 143,
+    "matched": 142,
+    "exact_hash_matches": 136,
+    "approximate_matches": 6,
+    "unmatched_before": 1,
+    "unmatched_after": 1
+  },
+  "matches": [
+    {
+      "before": {
+        "object_id": "E125",
+        "stable_id": "E125#before-null-curve",
+        "type": "edge",
+        "index": 125,
+        "brep_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "after": {
+        "object_id": "E125",
+        "stable_id": "E125#after-recovered-curve",
+        "type": "edge",
+        "index": 125,
+        "brep_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "score": 0.85,
+      "strategy": "same_type+same_object_id+same_orientation+same_index"
+    }
+  ],
+  "unmatched_before": [
+    {
+      "object_id": "E126",
+      "stable_id": "E126#baseline-extra",
+      "type": "edge",
+      "index": 126,
+      "brep_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "unmatched_after": [
+    {
+      "object_id": "E126",
+      "stable_id": "E126#patched-extra",
+      "type": "edge",
+      "index": 126,
+      "brep_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ]
+}

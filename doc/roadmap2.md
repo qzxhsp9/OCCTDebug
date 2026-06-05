@@ -105,10 +105,10 @@ case manifest + 输入数据 + 复现脚本 + 运行日志 + 证据链 + 补丁�
 
 ## 4. 当前仓库结构与目标目录结构
 
-本仓库不是全新空目录，当前根目录为：
+本仓库不是全新空目录，当前根目录以实际 clone 位置为准，文档中统一用占位符表示：
 
 ```text
-F:/data/github/OCCTDebug/
+<repo-root>/OCCTDebug/
 ```
 
 当前已经完成一次旧代码清理：旧模型查看器、旧 Shape 树、旧诊断规则、旧 IO、旧会话系统和旧 problem document importer 均已删除。需要旧实现时从 git 历史查找，不在当前源码树中保留无用代码。
@@ -164,6 +164,14 @@ OCCTDebug/
       source/
       verify/
     workbench/
+      CasePanel.h
+      CasePanel.cpp
+      EvidencePanel.h
+      EvidencePanel.cpp
+      SourcePanel.h
+      SourcePanel.cpp
+      VerificationPanel.h
+      VerificationPanel.cpp
       WorkbenchWindow.h
       WorkbenchWindow.cpp
       WorkbenchMockData.h
@@ -242,19 +250,19 @@ knowledge/                       # 当前已存在，后续扩展 index/cache/pr
 当前仓库根目录：
 
 ```text
-F:/data/github/OCCTDebug
+<repo-root>/OCCTDebug
 ```
 
 当前 Debug 构建目录：
 
 ```text
-F:/data/github/OCCTDebug/out/build/debug
+<repo-root>/OCCTDebug/out/build/debug
 ```
 
 当前应用输出：
 
 ```text
-F:/data/github/OCCTDebug/out/build/debug/src/OCCTDebug.exe
+<repo-root>/OCCTDebug/out/build/debug/src/OCCTDebug.exe
 ```
 
 当前 OCCT 配置来自：
@@ -303,10 +311,10 @@ depends/occt_3rdparty/tcltk-8.6.15-x64
 src/QtWorkbenchDefaults.cmake
 ```
 
-当前本机 Qt kit：
+当前本机 Qt kit 应写入本地忽略文件，不写入共享文档或源码：
 
 ```text
-D:/Programming/Qt/6.11.0/msvc2022_64
+<qt-root>/msvc2022_64
 ```
 
 模板文件：
@@ -326,10 +334,18 @@ CMakeUserPresets.json
 
 其中 `CMakeUserPresets.json` 属于本地配置文件，应继续保持 gitignore。当前机器上该文件可能仍包含 Qt Creator 生成的旧 kit 信息，例如 Qt 6.6.2；它不应作为团队共享事实。团队共享配置应优先放在 `CMakePresets.json`，个人路径放在 `src/QtWorkbenchDefaults.cmake` 或未来的 `config/workbench.local.yaml`。
 
+团队共享 Debug preset：
+
+```powershell
+cmake --preset OCCTDebug-Debug
+cmake --build --preset OCCTDebug-Debug
+ctest --preset OCCTDebug-Debug
+```
+
 当前可用验证命令：
 
 ```powershell
-cmd /c ""D:\Programming\VisualStudio\2026\Community\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 && cmake --build out\build\debug --config Debug && ctest --test-dir out\build\debug --output-on-failure"
+cmd /c ""<vsdevcmd-path>" -arch=x64 -host_arch=x64 && cmake --build out\build\debug --config Debug && ctest --test-dir out\build\debug --output-on-failure"
 ```
 
 当前 DRAW smoke 验证命令：
@@ -361,29 +377,29 @@ config/workbench.local.yaml            # 不提交，存个人路径
 
 ```yaml
 workspace:
-  repo_root: "F:/data/github/OCCTDebug"
-  build_root: "F:/data/github/OCCTDebug/out/build"
-  case_root: "F:/data/github/OCCTDebug/cases"
-  artifact_root: "F:/data/github/OCCTDebug/artifacts"
+  repo_root: "<repo-root>/OCCTDebug"
+  build_root: "<repo-root>/OCCTDebug/out/build"
+  case_root: "<repo-root>/OCCTDebug/cases"
+  artifact_root: "<repo-root>/OCCTDebug/artifacts"
 
 occt:
-  bundled_root: "F:/data/github/OCCTDebug/depends/occt"
+  bundled_root: "<repo-root>/OCCTDebug/depends/occt"
   source_root: ""
   build_root: ""
-  install_root: "F:/data/github/OCCTDebug/depends/occt"
-  casroot: "F:/data/github/OCCTDebug/depends/occt"
+  install_root: "<repo-root>/OCCTDebug/depends/occt"
+  casroot: "<repo-root>/OCCTDebug/depends/occt"
   drawexe: ""
   testgrid_root: ""
 
 third_party:
-  freetype_root: "F:/data/github/OCCTDebug/depends/occt_3rdparty/freetype-2.13.3-x64"
-  tcltk_root: "F:/data/github/OCCTDebug/depends/occt_3rdparty/tcltk-8.6.15-x64"
+  freetype_root: "<repo-root>/OCCTDebug/depends/occt_3rdparty/freetype-2.13.3-x64"
+  tcltk_root: "<repo-root>/OCCTDebug/depends/occt_3rdparty/tcltk-8.6.15-x64"
 
 qt:
-  root: "D:/Programming/Qt/6.11.0/msvc2022_64"
+  root: "<qt-root>/msvc2022_64"
 
 compiler:
-  developer_command: "D:/Programming/VisualStudio/2026/Community/Common7/Tools/VsDevCmd.bat"
+  developer_command: "<vsdevcmd-path>"
   generator: "Ninja"
   architecture: "x64"
 
@@ -398,7 +414,7 @@ privacy:
   allow_external_network: false
 ```
 
-注意：`drawexe` 当前可由 `scripts/run_draw_smoke.ps1` 和 `scripts/verify_env.ps1` 自动从仓库内 OCCT 布局检测；`source_root`、`testgrid_root` 仍未接入真实 runner，先留空，等源码索引和 testgrid 阶段由 UI 自动检测或用户填写。
+注意：`drawexe` 当前可由 `scripts/run_draw_smoke.ps1` 和 `scripts/verify_env.ps1` 自动从仓库内 OCCT 布局检测；`source_root` 仍未接入完整源码索引配置。`testgrid_root`、`testgrid_executable` 和 group/grid/case 已有最小配置化 runner 入口，未配置 executable 时只执行 `draw_smoke` 门禁和 summary 解析。
 
 ### 5.3 默认配置文件
 
@@ -423,6 +439,9 @@ verify:
   run_related_tests_first: true
   run_full_testgrid: false
   performance_compare: true
+
+patch:
+  worktree_root: ""
 ```
 
 实现顺序：先实现配置模型和读取默认值，再增加本地配置文件；不要在 UI 逻辑中散落硬编码路径。
@@ -579,6 +598,10 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 - [x] `cmake/` 中 OCCT / FreeType 查找脚本。
 - [x] Qt Widgets 应用入口 `src/app/main.cpp`。
 - [x] 新工作台主界面骨架 `src/workbench/WorkbenchWindow.*`。
+- [x] 左侧 Case 面板拆分为 `src/workbench/CasePanel.*`。
+- [x] 中央源码面板拆分为 `src/workbench/SourcePanel.*`。
+- [x] 中央证据链面板拆分为 `src/workbench/EvidencePanel.*`。
+- [x] 右侧验证结果面板拆分为 `src/workbench/VerificationPanel.*`。
 - [x] 最小日志工具 `src/core/Logger.*`。
 - [x] DRAW smoke CTest：`draw_smoke`、`draw_checkshape_smoke`。
 - [x] DRAW 运行辅助脚本：日志捕获、result JSON、日志解析、临时 CTest 注册、Repro Pack 导出。
@@ -594,7 +617,7 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 - [ ] 实现 `AppContext`，统一管理配置、路径、服务对象。
 - [ ] 实现基础配置加载器。
 - [ ] 将 UI/Runner 日志统一落盘到 Case workspace。
-- [ ] 修正 `cmake/occt_setup_install.cmake` 中 Release DLL 目录疑似指向 Debug 的问题。
+- [x] 已复核 `cmake/occt_setup_install.cmake`：Release 使用 `lib/Release/bin/*.dll`，Debug 使用 `lib/Debug/bind/*.dll`，当前无需代码修正。
 
 ### 交付物
 
@@ -617,9 +640,9 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 
 ### 当前状态
 
-状态：**骨架已完成，已有 mock/sample 数据，下一步接入真实 Case workspace**。
+状态：**骨架已完成，已有 mock/sample 数据和真实 Case workspace；Case、源码、证据和验证面板已拆分为独立 widget，后续重点转向补丁/验证/知识闭环**。
 
-当前 `WorkbenchWindow` 已经按 UI 设计图完成静态骨架：顶部状态栏、流程工具栏、左侧案例/流程/关键输入、中间源码/几何/证据/差异/环境 tab、右侧诊断/补丁/验证/相似案例、底部 DRAW/CMake/testgrid 控制台。
+当前 `WorkbenchWindow` 已经按 UI 设计图完成主框架：顶部状态栏、流程工具栏、中间源码/几何/证据/差异/环境 tab、右侧诊断/补丁/验证/相似案例、底部 DRAW/CMake/testgrid 控制台。左侧案例/流程/关键输入已由 `CasePanel` 独立承载，源码搜索/跳转由 `SourcePanel` 承载，证据列表由 `EvidencePanel` 承载，验证指标由 `VerificationPanel` 承载。
 
 ### 主要任务
 
@@ -637,13 +660,16 @@ P0 已经完成一次关键调整：旧实现已经清理，当前源码树只�
 
 待完成：
 
-- [ ] 拆分 `WorkbenchWindow.cpp`，避免单文件继续膨胀。
+- [x] 拆分左侧 `CasePanel`，避免 `WorkbenchWindow.cpp` 继续承载所有面板。
+- [x] 拆分右侧 `VerificationPanel`，将验证指标展示和导出按钮从主窗口移出。
+- [x] 拆分中央 `EvidencePanel`，将证据摘要和证据表刷新/追加从主窗口移出。
+- [x] 拆分中央 `SourcePanel`，将搜索输入、源码文本和搜索结果列表从主窗口移出。
 - [x] 引入 `CaseManifest` 基础数据模型。
-- [ ] 补齐 `WorkflowState` 数据模型。
-- [ ] 将静态样例 case 改为真实 case 数据。
-- [ ] 实现 case 创建、打开、保存。
-- [ ] 实现左侧 case 列表筛选和状态刷新。
-- [ ] 实现布局保存与恢复。
+- [x] 补齐 `WorkflowState` 数据模型基础。
+- [x] 将静态样例 case 改为真实 case 数据。
+- [x] 实现 case 创建、打开、保存。
+- [x] 实现左侧 case 列表状态刷新；筛选仍待补齐。
+- [x] 实现布局保存与恢复基础：主 splitter 尺寸、中心 tab、底部 tab 和底部高度。
 - [ ] 实现状态栏、任务通知和全局消息提示。
 
 ### 主界面区域
@@ -771,22 +797,22 @@ WorkbenchWindow
 
 ### 当前状态
 
-状态：**DRAW 执行基础已完成，Case workspace 和 C++ 复现模板未完成**。
+状态：**DRAW 执行、输入文件 hash 和 C++ 复现模板基础已完成，Case workspace 闭环仍需继续收束**。
 
 ### 主要任务
 
 - [ ] 实现新建问题对话框。
 - [ ] 实现 case workspace 初始化。
-- [ ] 实现输入文件导入与 hash 记录。
+- [x] 实现输入文件导入与 hash 记录：`CaseManifest.input.files` 已记录 Case 相对路径、原始文件名、bytes、SHA-256 和导入时间，几何模型导入成功后自动写入。
 - [x] 实现 DRAW 脚本编辑器基础入口。
-- [ ] 实现 C++ 最小复现工程模板。
+- [x] 实现 C++ 最小复现工程模板：UI 可在当前 Case `repro/cpp_minimal/` 生成最小 CMake/C++ 工程、README 和 DRAW 脚本副本。
 - [x] 实现 DRAWEXE runner / CTest wrapper 基础。
 - [x] 实现 PowerShell / CMake runner 基础。
 - [x] 实现 DRAW 运行日志捕获。
 - [x] 实现退出码和失败提示基础。
-- [ ] 完善 UI 侧超时、取消和任务状态。
-- [ ] 实现 crash dump 文件归档。
-- [ ] 实现复现状态判定。
+- [x] 完善 UI 侧超时、取消和任务状态。
+- [x] 实现 crash dump 文件归档。
+- [x] 实现复现状态判定。
 - [x] 实现 Markdown 报告生成骨架。
 - [ ] 将复现报告写入真实 Case workspace。
 
@@ -867,17 +893,18 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 当前状态
 
-状态：**OCCT Viewer 已有基础集成，checkshape smoke 已完成；模型加载和交互仍需推进**。
+状态：**OCCT Viewer 已支持 BREP/STEP/IGES 导入与加载，Viewer 已改为懒加载以降低启动阶段 native viewport 风险，checkshape smoke 已完成；选择、高亮和 Shape 基础统计已接入，跨拓扑永久命名仍需推进**。
 
 ### 主要任务
 
 - [x] 集成 OCCT Viewer 到 Qt 界面基础。
-- [ ] 支持加载 BREP / STEP / IGES。
+- [x] 支持导入并加载 BREP。
+- [x] 支持加载 STEP / IGES。
 - [ ] 支持基础显示：shaded、wireframe、透明、边线。
 - [ ] 支持选择 face / edge / vertex。
 - [ ] 支持显示 subshape ID。
 - [ ] 支持高亮异常 edge / face。
-- [ ] 实现 Shape 统计：Vertices、Edges、Wires、Faces、Shells、Solids。
+- [x] 实现 Shape 基础统计：Viewer 的 `topologySummary()` 已输出 Vertices、Edges、Wires、Faces、Shells、Solids 等统计，并同步到几何检查表与 Case manifest。
 - [x] 实现最小 checkshape CTest 和结构化解析基础。
 - [ ] 实现基础 checkshape 结果在 UI 中展示。
 - [ ] 实现 shape dump 导出。
@@ -913,7 +940,8 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 验收标准
 
-- [ ] 能加载并显示 BREP 模型。
+- [x] 能加载并显示 BREP 模型。
+- [x] 能加载并显示小型 STEP / IGES 模型。
 - [ ] 能选择并高亮边/面。
 - [ ] 能显示 Shape 拓扑统计。
 - [ ] 能将异常对象与日志中的 ID 关联。
@@ -929,19 +957,19 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 当前状态
 
-状态：**Evidence 面板、源码索引和 DRAW 日志解析已有基础，证据与 Case/run/source/shape 的关联未完成**。
+状态：**Evidence 面板、源码索引、DRAW 日志解析、源码关键词跳转、EvidenceBundle 结构化落盘和最小 Evidence UI 联动已有基础；调用栈精确跳转、日志行号跳转和真实几何对象高亮仍未完成**。
 
 ### 主要任务
 
-- [ ] 实现源码文件浏览器。
-- [ ] 实现代码编辑器基础能力。
-- [ ] 支持行号、高亮、搜索。
+- [x] 实现源码文件浏览器基础。
+- [x] 实现只读代码查看基础能力。
+- [x] 支持关键词搜索和跳转到命中文件行。
 - [ ] 支持从调用栈跳转源码文件。
 - [ ] 支持从日志错误跳转证据项。
 - [ ] 实现调用栈解析。
 - [x] 实现 DRAW 运行日志结构化解析基础。
 - [x] 实现 Evidence 面板骨架。
-- [ ] 补齐 Evidence 数据模型并落盘。
+- [x] 补齐 Evidence 数据模型并落盘为 `artifacts/evidence_bundle.json`。
 - [ ] 支持证据项与几何对象关联。
 - [ ] 支持证据项与源码文件关联。
 - [ ] 生成 `diagnosis_evidence.json`。
@@ -953,7 +981,7 @@ cases/OCC-LOCAL-2026-0001/
 - C++ 复现日志。
 - ASan 报告。
 - Shape check 结果。
-- Shape 统计。
+- Shape 基础统计已接入；跨拓扑重建永久命名仍待增强。
 - 几何截图。
 - 输入输出模型差异。
 - 相似历史问题。
@@ -972,7 +1000,7 @@ cases/OCC-LOCAL-2026-0001/
 - [ ] 日志中的异常能进入真实 Case 证据链。
 - [ ] 调用栈能显示并跳转源码。
 - [ ] 证据项能关联 case、run、source、shape。
-- [ ] 能生成结构化证据文件。
+- [x] 能生成结构化证据文件。
 
 ---
 
@@ -984,20 +1012,20 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 当前状态
 
-状态：**相似案例检索和源码索引已有基础，诊断结论仍以 mock/骨架为主**。
+状态：**相似案例检索、源码本地搜索和诊断报告导出已有基础；候选根因结构和知识库索引仍未完成**。
 
 ### 主要任务
 
-- [ ] 实现诊断结论卡片。
+- [x] 实现诊断结论卡片基础。
 - [ ] 实现候选根因数据结构。
 - [ ] 实现置信度展示。
-- [ ] 实现相关源码文件列表。
+- [x] 实现相关源码搜索结果列表基础。
 - [x] 实现相似案例检索基础。
 - [ ] 实现本地知识库索引。
 - [x] 支持基础本地搜索骨架。
 - [x] 支持关键词搜索源码的基础模块。
 - [ ] 支持按 toolkit / package / class / function 组织检索结果。
-- [ ] 生成 `diagnosis_report.md`。
+- [x] 生成 `diagnosis_report.md`。
 
 ### 相似案例来源
 
@@ -1032,21 +1060,25 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 当前状态
 
-状态：**候选补丁和审查流程已有基础模型，尚未接入真实 OCCT worktree patch 应用/撤销**。
+状态：**候选补丁 diff、审查状态、patch apply/undo、候选 diff 导入导出、worktree diff 生成和验证签核门禁已完成最小闭环；自动源码修复生成、交互式冲突修复和自动提交/合并尚未实现**。
 
 ### 主要任务
 
 - [x] 实现 PatchCandidate / PatchReview 基础。
 - [x] 实现补丁方案卡片骨架。
-- [ ] 实现 diff viewer。
+- [x] 实现 diff viewer。
 - [ ] 实现补丁文件列表。
 - [ ] 实现风险等级标记。
 - [ ] 实现影响模块标记。
 - [ ] 支持人工编辑 patch 说明。
-- [ ] 支持应用 patch 到工作区。
-- [ ] 支持撤销 patch。
+- [x] 支持应用 patch 到工作区。
+- [x] 支持撤销 patch。
+- [x] 支持从 `.patch/.diff` 导入候选补丁。
+- [x] 支持从配置的 `patch.worktree_root` 执行 `git diff --binary HEAD` 生成候选补丁。
+- [x] 支持保存候选补丁并写出带 sha256 的 manifest。
+- [x] 支持验证签核门禁，把 PatchCandidate 与 VerificationReport 绑定。
 - [ ] 支持生成回归测试草案。
-- [ ] 支持生成 patch review 报告。
+- [x] 支持生成 patch review 报告。
 
 ### 补丁审查对话框
 
@@ -1079,11 +1111,12 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 验收标准
 
-- [ ] 能显示补丁 diff。
-- [ ] 能将 patch 应用到指定 OCCT worktree。
-- [ ] 能撤销 patch。
-- [ ] 能记录人工审查意见。
-- [ ] 能导出 `.patch` 文件。
+- [x] 能显示补丁 diff。
+- [x] 能将 patch 应用到指定 OCCT worktree。
+- [x] 能撤销 patch。
+- [x] 能记录人工审查状态。
+- [x] 能导出 `.patch` 文件。
+- [x] 能在验证报告通过且审查门禁可接受时签核；失败时阻塞并记录原因。
 
 ---
 
@@ -1095,21 +1128,24 @@ cases/OCC-LOCAL-2026-0001/
 
 ### 当前状态
 
-状态：**CTest DRAW 门禁和 testgrid/testdiff 解析骨架已完成，完整 runner 与验证计划 UI 未完成**。
+状态：**CTest DRAW 门禁、testgrid/testdiff 解析骨架、UI 最小 runner 和 before/after 最小结构化对比已完成；`testgrid_plan` 支持 root/executable/arguments/group/grid/case，完整失败明细、耗时和自动两阶段 testgrid/testdiff 编排仍未完成**。
 
 ### 主要任务
 
-- [ ] 实现验证计划对话框。
+- [x] 实现底部 testgrid 面板的最小验证计划输入。
 - [ ] 支持运行原始 repro。
 - [ ] 支持运行新增测试。
-- [ ] 支持运行指定 testgrid group / grid / case。
+- [x] 支持配置并运行指定 testgrid group / grid / case 的最小命令。
 - [x] 支持运行 DRAW smoke CTest。
 - [x] 建立 `draw_smoke` 作为后续 testgrid 前置门禁。
 - [x] 支持解析 testgrid/testdiff 输出骨架。
-- [ ] 支持解析测试通过率、失败列表、耗时。
+- [x] 底部 testgrid 面板可运行最小门禁并写入 `artifacts/testgrid_result.json`。
+- [x] 支持解析测试通过率基础字段。
+- [x] 未配置真实 testgrid executable 时降级为门禁和 summary 解析，不伪造完整回归。
+- [ ] 支持解析完整失败列表、耗时。
 - [ ] 支持 before / after 结果对比。
 - [ ] 支持性能变化记录。
-- [ ] 支持生成 `verification_report.md`。
+- [x] 支持生成最小 `verification_report.md` 与 `verification/verification_report.json`。
 - [ ] 支持将验证结果绑定到 patch candidate。
 
 ### 验证计划对话框
@@ -1158,7 +1194,7 @@ V6 全量回归通过
 - [x] 有解析通过率的基础模块。
 - [ ] UI 能展示通过率。
 - [ ] 能列出失败用例。
-- [ ] 能生成 `verification_report.md`。
+- [x] 能生成最小 `verification_report.md`。
 
 ---
 
@@ -1631,7 +1667,7 @@ public:
 - [ ] DRAW 脚本编辑与运行。
 - [ ] 运行日志捕获。
 - [ ] OCCT 几何模型加载与显示。
-- [ ] Shape 基础统计。
+- [x] Shape 基础统计。
 - [ ] 调用栈 / 日志手动录入与展示。
 - [ ] 证据链面板。
 - [ ] 诊断报告 Markdown 导出。
@@ -1988,9 +2024,9 @@ sample_cases/
 
 ### R2：复现与几何版
 
-- [ ] 模型导入。
+- [x] 模型导入。
 - [x] 几何显示基础嵌入。
-- [ ] Shape 统计。
+- [x] Shape 基础统计。
 - [x] Markdown 报告生成骨架。
 - [ ] 真实 Case 复现报告生成。
 
@@ -2003,11 +2039,12 @@ sample_cases/
 
 ### R4：补丁与验证版
 
-- [ ] diff 查看。
+- [x] diff 查看。
 - [ ] patch 应用 / 撤销。
-- [ ] 验证计划。
+- [x] patch 审查状态与报告。
+- [x] 验证计划基础。
 - [x] testgrid/testdiff 结果解析骨架。
-- [ ] testgrid/testdiff runner 与 UI 接入。
+- [x] testgrid/testdiff 最小 runner 与 UI 接入。
 - [ ] 验证报告生成。
 
 ### R5：知识闭环版
@@ -2071,7 +2108,7 @@ M1 完成后，项目从“可运行骨架”进入“真实 Case 工作台”�
 ### 33.2 M2：几何与证据闭环
 
 ```text
-1. OCCT Viewer 支持加载小型 BREP/STEP
+1. OCCT Viewer 支持加载小型 BREP/STEP/IGES
 2. Shape 基础统计
 3. checkshape 结果 UI 展示
 4. EvidenceBundle 落盘为 JSON
@@ -2103,8 +2140,9 @@ M3 完成后，候选补丁才具备基本工程验证条件。
 3. 候选根因结构化表达
 4. PatchCandidate diff 查看和人工审查
 5. patch 应用/撤销
-6. case 归档与知识条目生成
-7. 从历史 case 复用 repro 和验证模板
+6. verification_report.md 与 PatchCandidate 绑定
+7. case 归档与知识条目生成
+8. 从历史 case 复用 repro 和验证模板
 ```
 
 M4 完成后，工具形成从问题到知识沉淀的完整工程闭环。
@@ -2201,42 +2239,583 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 
 ### 36.1 N1：配置与上下文
 
-- [ ] 清理/统一 `CMakePresets.json`，确保团队共享 preset 不依赖本机 `CMakeUserPresets.json`。
-- [ ] 明确 `src/QtWorkbenchDefaults.cmake` 为本地 Qt kit 配置入口，并保持 gitignore。
-- [ ] 增加 `config/workbench.default.yaml`。
-- [ ] 增加 `config/workbench.local.example.yaml`。
-- [ ] 更新 `.gitignore`，覆盖 `config/workbench.local.yaml`、`cases/`、`artifacts/`、`knowledge/cache/` 等本地产物。
-- [ ] 实现 `AppContext`。
-- [ ] 实现 `ConfigService`，读取默认配置、本地配置和 CMake 推导路径。
+- [x] 清理/统一 `CMakePresets.json`，确保团队共享 preset 不依赖本机 `CMakeUserPresets.json`。
+- [x] 明确 `src/QtWorkbenchDefaults.cmake` 为本地 Qt kit 配置入口，并保持 gitignore。
+- [x] 增加 `config/workbench.default.yaml`。
+- [x] 增加 `config/workbench.local.example.yaml`。
+- [x] 更新 `.gitignore`，覆盖 `config/workbench.local.yaml`、`cases/`、`artifacts/`、`knowledge/cache/` 等本地产物。
+- [x] 实现 `AppContext`。
+- [x] 实现 `ConfigService`，读取默认配置、本地配置和 CMake 推导路径。
+
+说明：当前 `workbench.*.yaml` 文件采用 JSON-compatible YAML 子集，避免在 N1 阶段引入新第三方依赖。后续若确实需要完整 YAML 语法，再增加解析器或转换层。
 
 ### 36.2 N2：Case workspace
 
-- [ ] 定义 `WorkflowState`、`WorkspaceLayout`，并补齐 `CaseManifest` 与 workspace 的关系。
-- [ ] 创建第一个 sample case 目录结构。
-- [ ] 支持 case 创建、打开、保存。
-- [ ] 将 `WorkbenchWindow` 中静态 case 数据替换为 sample case 数据。
-- [ ] 所有 artifact 使用相对路径索引。
+- [x] 定义 `WorkflowState`、`WorkspaceLayout`，并补齐 `CaseManifest` 与 workflow/layout 的关系。
+- [x] 创建第一个 sample case 目录结构。
+- [x] 支持 sample case workspace 初始化。
+- [x] 支持 `CaseManifest` 保存/加载。
+- [x] 支持 UI 创建、打开、保存 case。
+- [x] 将 `WorkbenchWindow` 初始数据从 sample case workspace 加载，并支持从 `cases/` 扫描与切换多个 Case。
+- [x] 将左侧 Case/流程/关键输入 UI 拆分为 `CasePanel`，主窗口仅保留 Case workspace 行为编排。
+- [x] DRAW、环境采集等新增 artifact 使用相对路径索引；旧 mock 字段仍需逐步迁移。
 
-### 36.3 N3：DRAW 到 Case
+### 36.3 N18：CasePanel 拆分
 
-- [ ] UI 运行 DRAW 后将 stdout/stderr/result JSON 写入当前 Case。
-- [ ] 使用 `parse_draw_log.ps1` 或等价 C++ 解析器生成 Evidence。
-- [ ] 在 Evidence 面板展示 success token、错误行、checkshape 状态。
-- [ ] 支持从 UI 导出 Repro Pack。
+- [x] 新增 `workbench/CasePanel.*`。
+- [x] CasePanel 只负责左侧 UI 展示和发出新建/打开/保存/刷新/切换信号。
+- [x] Case workspace 扫描、manifest 保存/加载和错误提示仍由 `WorkbenchWindow` 编排，避免在 UI widget 内混入业务逻辑。
+- [x] 继续拆分证据、源码等面板。
 
-### 36.4 N4：环境与报告
+### 36.4 N19：WorkspaceLayout 恢复
 
-- [ ] UI 触发 `verify_env.ps1` 并保存 `env_snapshot.json`。
-- [ ] 在环境信息 tab 显示 Qt、OCCT、CMake、MSVC、DRAW smoke 状态。
-- [ ] 生成第一份真实 Case Markdown 报告。
-- [ ] 报告中避免泄露不必要的个人绝对路径。
+- [x] 主 splitter 左/中/右宽度可保存到 `workspace_layout.left_width` / `center_width` / `right_width`。
+- [x] 中心 tab 使用稳定 ID 保存/恢复：`source`、`repro`、`geometry`、`evidence`、`diff`、`environment`。
+- [x] 底部 tab 使用稳定 ID 保存/恢复：`draw`、`cmake`、`testgrid`。
+- [x] 底部控制台高度继续保存到 `workspace_layout.bottom_height`。
+- [ ] 窗口位置、最大化状态和更细粒度 dock/layout 状态后续再补。
 
-### 36.5 持续门禁
+### 36.5 N20：Workbench 面板拆分收束
+
+- [x] 新增 `workbench/VerificationPanel.*`。
+- [x] VerificationPanel 负责验证指标展示。
+- [x] VerificationPanel 通过信号触发 Markdown 报告和 Repro Pack 导出。
+- [x] testgrid 结果落盘后通过 `VerificationPanel::setItems()` 刷新验证指标。
+- [x] 新增 `workbench/EvidencePanel.*`，负责证据摘要、证据表刷新和追加展示。
+- [x] 新增 `workbench/SourcePanel.*`，负责源码搜索输入、源码文本显示、搜索结果展示和结果激活信号。
+- [x] `WorkbenchWindow` 保留源码索引、文件读取、Case workspace 和报告编排，避免 UI widget 混入业务持久化。
+
+### 36.6 N3：DRAW 到 Case
+
+- [x] UI 运行 DRAW 后将 stdout/stderr/result JSON 写入当前 Case。
+- [x] 使用等价 C++ 基础解析生成 DRAW Evidence。
+- [x] 在 Evidence 面板展示 success token、错误行、checkshape 状态摘要，并生成 `draw_log_analysis.json`。
+- [x] 支持从 UI 导出 Repro Pack。
+
+### 36.7 N21：Patch Apply / Undo 最小入口
+
+- [x] `config/workbench.default.yaml` 与 `config/workbench.local.example.yaml` 增加可选 `patch.worktree_root`。
+- [x] `CaseManifest` 增加 `patch.worktree_root`、`patch.apply_status`、`patch.apply_log`。
+- [x] Patch Review 面板增加 Apply / Undo 按钮。
+- [x] Apply 执行 `git apply artifacts/candidate_patch.diff`，Undo 执行 `git apply -R artifacts/candidate_patch.diff`。
+- [x] 执行结果写入 `logs/patch_apply.*` / `logs/patch_undo.*` 与 `artifacts/patch_apply_result.json` / `artifacts/patch_undo_result.json`。
+- [x] 执行结果登记为 Evidence，并同步到验证指标。
+- [ ] 当前不自动生成真实 patch、不处理交互式冲突、不自动提交，也不绕过 reviewer 审查状态。
+
+### 36.8 N22：EvidenceBundle 结构化落盘
+
+- [x] 新增 `core/evidence/EvidenceBundleWriter.*`。
+- [x] 保存 Case 时生成 `artifacts/evidence_bundle.json`。
+- [x] EvidenceBundle 包含 evidence records、source/log/geometry/artifact 分类、几何检查、验证指标、诊断摘要和 patch 状态。
+- [x] EvidenceBundle 链接状态只保存 Case 相对路径，不写入本机绝对路径。
+- [x] Markdown 报告在结构化证据包存在时链接 `artifacts/evidence_bundle.json`。
+- [x] 新增 `evidence_bundle_smoke` CTest，验证 sample case 可生成结构化证据包且包含 source/log 证据分类。
+- [x] 证据项与源码、日志、几何视图的最小 UI 联动跳转已接入；调用栈、日志行号和真实几何对象级定位仍待后续补齐。
+
+### 36.9 N4：环境与报告
+
+- [x] UI 触发 `verify_env.ps1` 并保存 `env_snapshot.json`。
+- [x] 在环境信息 tab 显示 Qt、OCCT、CMake、MSVC、DRAW smoke 状态。
+- [x] 生成当前 Case Markdown 报告，输出到 `case/report/repro_report.md`。
+- [x] 报告中避免泄露不必要的个人绝对路径；Evidence artifact 仅接受 Case workspace 内相对路径。
+- [x] 报告生成器会检查 Evidence artifact 链接，区分 `ok`、`missing artifact` 和 `blocked absolute/external path`。
+
+### 36.10 N23：VerificationReport 结构化落盘
+
+- [x] 新增 `core/verify/VerificationReportWriter.*`。
+- [x] 保存 Case 时生成 `report/verification_report.md` 与 `verification/verification_report.json`。
+- [x] VerificationReport 汇总 DRAW gate、testgrid/testdiff、patch apply 状态、EvidenceBundle 链接和 overall gate。
+- [x] `repro_report.md` 在验证报告存在时链接 `report/verification_report.md`。
+- [x] 新增 `verification_report_smoke` CTest，验证 sample case 可生成结构化验证报告且不写入本机绝对路径。
+- [x] `failure_details` 与 patch dry-run gate 已有最小结构化输出。
+- [x] before/after 最小结构化对比和 patch conflict hints 已在 N27 补齐。
+- [ ] 耗时、完整自动两阶段 testgrid/testdiff 编排和交互式冲突修复仍待后续补齐。
+
+### 36.11 N24：Evidence UI 联动跳转
+
+- [x] `EvidencePanel` 增加行激活信号并保存当前 Evidence records。
+- [x] `file:line` 证据引用切换到源码 tab，优先打开仓库/Case 内可解析文件；找不到文件时显示 Case manifest 中的源码摘要。
+- [x] `logs/` 与普通 Case artifact 证据只按 Case 相对路径解析，日志显示到底部 DRAW/CMake 控制台。
+- [x] Shape/Geometry 证据切换到几何 tab，并选中失败或告警几何检查项。
+- [x] 调用栈帧、日志行号和几何对象级定位已在 N26 补齐基础。
+- [ ] 真实 OCCT shape/edge/face 高亮仍待 Viewer 层增强。
+
+### 36.12 N25：Patch dry-run 与验证失败详情
+
+- [x] Patch Apply 前执行 `git apply --check artifacts/candidate_patch.diff` dry-run。
+- [x] Patch Undo 前执行 `git apply -R --check artifacts/candidate_patch.diff` dry-run。
+- [x] dry-run 失败时不修改目标 worktree，并写入 `logs/patch_*_dry_run.*` 与 `artifacts/patch_*_dry_run_result.json`。
+- [x] dry-run 结果登记为 Evidence，并同步到 verification items、EvidenceBundle 和 VerificationReport。
+- [x] VerificationReport 新增 `patch_dry_run` gate、`failure_details` 和 patch dry-run artifact 链接。
+- [x] `verification_report_smoke` 覆盖 `patch_dry_run` gate 与 `failure_details` 字段。
+- [ ] dry-run 当前为 UI 线程同步执行；后续应改为异步任务并支持取消。
+- [x] patch dry-run conflict hints 与 testgrid before/after 最小结构化对比已在 N27 补齐。
+- [ ] 完整交互式冲突修复和自动两阶段 testgrid/testdiff 编排仍待后续补齐。
+
+### 36.13 N26：Evidence 精确定位
+
+- [x] `EvidenceRecord` 增加可选定位字段：`source_file/source_line`、`log_file/log_line`、`stack_frame`、`geometry_object`。
+- [x] Case manifest JSON 读写兼容旧 evidence，并保留新增定位字段。
+- [x] Evidence 激活优先使用结构化字段；兼容 `file:line` 与 `logs/x.log:line`。
+- [x] 源码证据可跳转到源码 tab 的目标行；调用栈帧可解析 `file:line`。
+- [x] 日志证据可打开底部 DRAW/CMake 控制台并滚动到目标行。
+- [x] 几何证据可按 `geometry_object` 匹配几何检查行，匹配不到时退回失败/告警项。
+- [x] DRAW 运行证据、patch dry-run/apply 证据会记录可跳转日志行。
+- [x] EvidenceBundle 输出 `location` 对象，`evidence_bundle_smoke` 覆盖 source/log/geometry 定位字段。
+- [x] OCCT Viewer 子形状高亮与 Evidence 选择同步基础已在 N28 补齐。
+- [x] 鼠标拾取反向同步和截图证据基础已在 N31 补齐。
+- [ ] 跨拓扑重建的稳定命名或 shape dump 映射仍待后续增强。
+
+### 36.14 N27：Patch/testgrid before-after 与冲突摘要
+
+- [x] 新增 `TestgridComparison` / `TestgridComparisonRow`，可按模块对齐 before/after testgrid 行。
+- [x] 支持读取 `verification/testgrid_before.txt` 和 `verification/testgrid_after.txt`，生成 pass/fail delta、回归状态和摘要。
+- [x] UI 运行 testgrid 后会把 before/after 对比写入 `artifacts/testgrid_result.json.before_after`，并刷新差异对比 tab 摘要。
+- [x] VerificationReport 新增 `before_after` gate、JSON 区块和 Markdown “Before / After Comparison” 区块。
+- [x] before/after 出现新增失败或退化时会进入 `failure_details` 并影响 overall gate。
+- [x] EvidenceBundle 新增 `verification_comparison` 区块。
+- [x] Patch dry-run 失败时会解析 stderr/stdout 中的 conflict hints，写入 `artifacts/patch_*_dry_run_result.json.conflicts`。
+- [x] `evidence_bundle_smoke` 与 `verification_report_smoke` 覆盖 before/after 对比字段。
+- [ ] 当前仍不是自动执行 patch 前/patch 后两轮 testgrid；before/after 文件或运行结果需要由用户/后续 runner 提供。
+- [ ] 当前 conflict hints 只是结构化摘要，还没有交互式冲突修复 UI。
+
+### 36.15 N28：OCCT Viewer 子形状高亮与 Evidence 选择同步
+
+- [x] `OcctViewerWidget` 保存最近显示的 `TopoDS_Shape`，并跟踪当前高亮对象。
+- [x] 新增 `highlightGeometryObject()` / `clearHighlight()` / `highlightedObjectId()`。
+- [x] 支持解析 `V/E/W/F/SHELL/SOLID + 序号` 的 `geometry_object`。
+- [x] 通过 `TopExp_Explorer` 在当前 shape 中查找真实子形状，使用单独 `AIS_Shape` 着色和加粗显示。
+- [x] Evidence 激活时会同步几何 tab、几何检查表和 Viewer 高亮状态。
+- [x] 找不到对象、对象 ID 不支持或当前未加载 shape 时，会在几何摘要和控制台显示明确失败原因。
+- [x] Viewer 鼠标拾取反向同步和截图证据基础已在 N31 补齐。
+- [ ] 当前子形状序号依赖 OCCT 遍历顺序；后续需要引入跨拓扑重建的稳定命名或 shape dump 映射。
+
+### 36.16 N29：VerificationReport 与 PatchCandidate 审查结论绑定
+
+- [x] VerificationReport 新增 `gate.patch_review`，把 PatchCandidate 审查状态纳入验证门禁。
+- [x] VerificationReport JSON 新增 `patch.decision`，包含审查状态、门禁状态、推荐动作、阻塞原因和审查项。
+- [x] Markdown 验证报告新增 Patch State 审查门禁、推荐动作、结论摘要和审查项表格。
+- [x] 审查通过但 testgrid、DRAW 或 before/after 等验证门禁仍失败时，`patch_review` 会进入 `blocked`，并把 `candidate_patch` 写入 `failure_details`。
+- [x] 审查拒绝时可让 overall gate 失败；审查仍为 draft/pending 且其他验证已通过时，overall gate 保持 incomplete。
+- [x] `patch_review.md` 会链接 `verification_report.md` 和 `verification_report.json`，审查报告导出后同步刷新 VerificationReport。
+- [x] EvidenceBundle 已输出 patch 审查状态和审查项，便于后续归档和知识检索。
+- [x] `verification_report_smoke` 与 `evidence_bundle_smoke` 覆盖 patch review 结构化输出。
+- [ ] 尚未实现自动签核、真实补丁生成或完整 testgrid/testdiff 回归签核。
+
+### 36.17 N30：自动两阶段 testgrid/testdiff 编排
+
+- [x] 底部 testgrid 面板新增“二阶段验证”入口。
+- [x] 新增最小异步状态机，执行顺序为 before DRAW gate / testgrid command -> patch dry-run/apply -> after DRAW gate / testgrid command -> patch undo。
+- [x] before 和 after 阶段分别写入 `logs/testgrid_before_*`、`logs/testgrid_after_*`、`artifacts/testgrid_before_result.json`、`artifacts/testgrid_after_result.json`。
+- [x] before 和 after 阶段会写入 `verification/testgrid_before.txt` 与 `verification/testgrid_after.txt`，供现有 before/after parser、VerificationReport 和 EvidenceBundle 复用。
+- [x] 最终结果写入 `artifacts/testgrid_two_stage_result.json`，并同步兼容入口 `artifacts/testgrid_result.json`。
+- [x] 最终 JSON 包含 `mode=two_stage`、phase artifact、patch 状态、testgrid rows、testdiff entries 和 before/after comparison。
+- [x] 未配置真实 testgrid executable 时，不伪造大型回归，只使用 DRAW gate 和本地 summary 文件形成可审查的最小结果。
+- [x] patch worktree 或候选 diff 不可用时，workflow 会以 blocked 状态结束并保留 before 阶段证据。
+- [x] 二阶段状态机已在 N33 抽成可独立 smoke 测试的 `VerificationWorkflow` 服务。
+- [ ] 真实 testdiff before/after 工件、完整失败明细、耗时统计和交互式冲突修复仍待后续增强。
+
+### 36.18 N31：OCCT Viewer 反向拾取、稳定拓扑标识与截图证据
+
+- [x] `OcctViewerWidget` 新增 `geometryObjectPicked(objectId, summary)` 信号。
+- [x] Viewer 对显示的 `AIS_Shape` 启用 vertex、edge、face、solid、compsolid、compound 子形状选择模式。
+- [x] 鼠标左键拾取命中子形状后，会映射为标准 `geometry_object`：`V/E/W/F/SHELL/SOLID/COMPSOLID/COMPOUND/SHAPE + 序号`。
+- [x] 拾取后会复用 `highlightGeometryObject()` 高亮当前对象，并把选择摘要回传工作台。
+- [x] 工作台收到 Viewer 拾取后，会生成 `artifacts/geometry_selection_*.json`，登记 Geometry Evidence，并同步几何检查表和 EvidenceBundle。
+- [x] 几何 tab 新增“保存截图”按钮，当前 Viewer 画面保存为 `artifacts/geometry_screenshot_*.png`。
+- [x] 截图会登记为 Geometry Evidence；若当前有高亮对象，则 Evidence 同时记录 `geometry_object`。
+- [x] Viewer 提供 `topologySummary()`，把当前 shape 的 V/E/W/F/SHELL/SOLID/COMPSOLID/COMPOUND 计数写入选择和截图证据摘要。
+- [ ] 当前所谓稳定标识仍是当前 shape 内的 `TopExp_Explorer` 遍历序号，只能稳定复用同一模型/同一加载结果；跨修复前后拓扑重建仍需 shape dump 映射或命名算法。
+- [ ] 截图当前使用 Qt `grab()`，后续可升级为 OCCT `V3d_View` 原生导出以获得更可控的分辨率和背景。
+
+### 36.19 N32：补丁候选生成、导入导出与验证签核
+
+- [x] 候选补丁 diff 面板支持手工编辑，不再只是只读展示。
+- [x] 支持从 `.patch/.diff` 文件导入候选补丁，并保存到当前 Case 的 `artifacts/candidate_patch.diff`。
+- [x] 支持从配置的 `patch.worktree_root` 执行 `git diff --binary HEAD` 生成候选补丁，不写死个人机器路径。
+- [x] 保存候选补丁时写出 `artifacts/candidate_patch_manifest.json`，记录 case id、相对 patch 路径、bytes、sha256、review/signoff 状态和 worktree 配置状态。
+- [x] 支持从 UI 导出当前候选 diff 为 `.patch/.diff` 文件。
+- [x] 候选 diff 变化时会重置 patch review、patch apply 状态和 signoff 状态，避免旧审查结论误用于新补丁。
+- [x] Patch signoff 会读取最新 `verification/verification_report.json`，只有 `overall_status=passed` 且 `gate.patch_review` 可接受时写入 `signed off`。
+- [x] 验证未通过、审查未通过或验证报告缺失时，Patch signoff 写入 `blocked` 并记录阻塞原因。
+- [x] VerificationReport 新增 `gate.patch_signoff`、`patch.signoff_status` 和 `patch.signoff_note`，Markdown 报告同步展示签核状态。
+- [x] EvidenceBundle 的 patch 摘要包含 signoff 状态和说明，便于后续归档与知识检索。
+- [x] `verification_report_smoke` 与 `evidence_bundle_smoke` 覆盖 patch signoff 结构化输出。
+- [ ] 当前仍不自动生成源码修复，不自动提交/合并，也不提供交互式冲突修复 UI。
+- [ ] `git diff` 生成当前为同步执行；后续可改为异步 CommandRunner 并记录独立 stdout/stderr/result artifact。
+
+### 36.20 N33：二阶段验证状态机服务化
+
+- [x] 新增 `core/verify/VerificationWorkflow.*`，集中描述二阶段验证的业务状态和下一动作决策。
+- [x] `VerificationWorkflow` 覆盖 before gate、before command、patch apply、after gate、after command、patch undo 和 finalize 阶段。
+- [x] `WorkbenchWindow` 不再直接持有 before/after command result、patch applied、final status 等二阶段业务状态，只保留命令启动、artifact 落盘和 UI 刷新编排。
+- [x] 服务 decision 支持“先持久化 phase，再启动下一动作或 finalize”，避免失败路径丢失阶段证据。
+- [x] 新增 `verification_workflow_smoke` CTest，覆盖无配置 testgrid happy path、配置 testgrid command path、DRAW gate 失败和 patch apply 失败。
+- [x] 全量 CTest 当前包含 `draw_smoke`、`draw_checkshape_smoke`、`evidence_bundle_smoke`、`verification_report_smoke` 和 `verification_workflow_smoke`。
+- [ ] 当前服务只做状态决策，不直接执行命令、不写文件；这是有意边界，命令和 artifact 仍由工作台编排层负责。
+- [x] two-stage final result JSON 写入已由 N56 抽到独立 writer；后续继续降低 `WorkbenchWindow` 的 UI 刷新与报告触发职责。
+
+### 36.21 N34：拓扑签名与 shape dump 映射
+
+- [x] 新增 `core/geometry/TopologySignature.*`，把当前 shape 映射为可落盘的 topology signature JSON。
+- [x] 每条记录包含 `object_id`、`stable_id`、类型、序号、orientation、children 和 `brep_sha256`。
+- [x] `brep_sha256` 基于 `BRepTools::Write(subshape)` 的 SHA-256，而不是进程内 TShape 指针 hash。
+- [x] Viewer 暴露 `topologySignatureForObject()` 和 `topologySignatureJson()`，拾取对象时 summary 中带 `stable_id`。
+- [x] 几何 tab 新增“保存映射”入口，手动写出 `artifacts/topology_signature_*.json`。
+- [x] 加载模型、Viewer 拾取和保存截图时会写出 topology signature artifact，并登记 Geometry Evidence。
+- [x] `geometry_selection_*.json` 新增 `stable_geometry_object`、`topology_signature` 和新的 selection basis。
+- [x] 新增 `topology_signature_smoke` CTest，覆盖签名结构、对象签名、`stable_id` helper 和缺失对象错误路径。
+- [x] 新增 `TopologySignature::compare()`，可对 before/after signature JSON 执行同类型匹配，优先 exact `brep_sha256`，再用 `object_id`、orientation、children 和 index 生成近似分数。
+- [x] compare 结果包含 `matches`、`unmatched_before`、`unmatched_after`、`counts_delta` 和 summary，便于后续落盘为几何差异 artifact。
+- [x] `topology_signature_smoke` 已覆盖相同 shape 的稳定匹配和尺寸变化 shape 的非稳定匹配。
+- [ ] 当前 `stable_id` 和 compare 策略能帮助审查和 before/after 对比，但仍不是可保证跨所有拓扑重建的永久命名。
+- [ ] 后续需要继续增强局部几何、邻接关系和容差近似匹配，并把 compare artifact 接入几何差异 tab、EvidenceBundle 与 VerificationReport。
+
+### 36.22 N35：testgrid/testdiff 失败明细、耗时统计与工件归档
+
+- [x] `VerificationResultParser` 新增结构化失败明细与耗时摘要模型，可从 testgrid rows、testdiff entries 和 before/after comparison 生成统一 failure details。
+- [x] 单阶段 `artifacts/testgrid_result.json` 新增 `failure_details`、`timing` 和 `testdiff_artifacts`，记录 DRAW gate、配置 testgrid 命令、testdiff summary 和命令日志。
+- [x] 二阶段 `artifacts/testgrid_before_result.json` / `testgrid_after_result.json` / `testgrid_two_stage_result.json` 同步输出失败明细、耗时和 testdiff 工件；兼容入口 `artifacts/testgrid_result.json` 保持可被报告与证据包读取。
+- [x] `VerificationReportWriter` 优先消费 `artifacts/testgrid_result.json` 中的结构化 N35 字段；Markdown 报告新增 Timing Summary，并在 Linked Artifacts 中列出 testdiff summary/stdout/stderr。
+- [x] `EvidenceBundleWriter` 新增 `verification_failures`、`verification_timing` 和 `testdiff_artifacts`，把 testgrid/testdiff 失败、耗时和工件纳入证据包。
+- [x] sample case 新增最小 `artifacts/testgrid_result.json`，用于覆盖 N35 字段且不包含本机绝对路径。
+- [x] 新增 `verification_result_parser_smoke` CTest；`verification_report_smoke` 与 `evidence_bundle_smoke` 已覆盖 N35 输出字段。
+- [ ] 当前 testdiff 工件仍以 summary/stdout/stderr 指针为主；后续接入真实 testdiff 目录时，应归档图片 diff、属性 diff、性能 diff 等细粒度文件清单。
+
+### 36.23 N36：异步 patch git diff 生成与独立 artifact
+
+- [x] PatchCandidate 的 `git diff --binary HEAD` 生成已从同步等待改为异步 `CommandRunner`，避免阻塞 UI 线程。
+- [x] 生成命令会记录 program、arguments、working_directory、stdout、stderr、exit_code、exit_status、elapsed_ms 和 success。
+- [x] stdout/stderr 分别写入 `logs/patch_generate.stdout.log` / `logs/patch_generate.stderr.log`，结构化结果写入 `artifacts/patch_generate_result.json`。
+- [x] 命令成功且 stdout 存在 diff 时，继续保存 `artifacts/candidate_patch.diff` 与 `artifacts/candidate_patch_manifest.json`；无 diff 时不覆盖已有候选 diff。
+- [x] Evidence、VerificationReport 和 EvidenceBundle 已归档 patch generation 状态与 `patch_generate_result` artifact。
+- [x] sample case 新增最小 `artifacts/patch_generate_result.json`，`verification_report_smoke` 与 `evidence_bundle_smoke` 覆盖 N36 输出字段。
+- [ ] 当前仍未提供 patch 生成取消按钮、生成任务队列和交互式冲突修复 UI；后续应与 CommandRunner 取消能力、Patch 服务拆分一起推进。
+
+### 36.24 N38：two-stage result JSON writer 抽离
+
+- [x] 新增 `core/verify/TwoStageVerificationResultWriter.*`，负责生成两阶段 phase result 与 final result JSON。
+- [x] `WorkbenchWindow::persistTwoStagePhase()` 已改为传入已解析 rows、testdiff、failure_details、timing 等结构化数据，由 writer 生成 `testgrid_before_result.json` / `testgrid_after_result.json` 内容。
+- [x] `WorkbenchWindow::persistTwoStageWorkflowResult()` 已改为由 writer 生成 `testgrid_two_stage_result.json` 与兼容入口 `testgrid_result.json` 内容。
+- [x] 新增 `two_stage_verification_result_writer_smoke` CTest，覆盖 phase/final JSON 的 rows、failure_details、timing、testdiff artifacts、plan、phase artifact 和 before_after 字段。
+- [ ] 当前文件读写、Evidence 登记、verification items 更新和 UI 刷新仍在 `WorkbenchWindow`；后续应继续拆分为 testgrid artifact service 与 UI adapter。
+
+### 36.25 N39：真实 testdiff before/after 目录与细粒度工件清单
+
+- [x] 新增 `core/verify/TestdiffArtifactScanner.*`，从 Case workspace 扫描约定 testdiff 目录并生成 manifest。
+- [x] 支持目录约定：`verification/testdiff/{before,after,diff}`、`verification/testdiff_before`、`verification/testdiff_after`、`verification/testdiff_diff`、`artifacts/testdiff/{before,after,diff}`、`artifacts/testdiff_before`、`artifacts/testdiff_after`、`artifacts/testdiff_diff`。
+- [x] `testdiff_artifacts` 新增 `directories`、`artifact_files`、`artifact_counts` 和 `truncated`；工件按 image/property/performance/log/text/other 分类，并保留 before/after/diff role。
+- [x] 单阶段 `testgrid_result.json` 和二阶段 writer 都复用该 scanner，旧字段 `summary`、`command_stdout`、`command_stderr` 保持兼容。
+- [x] VerificationReport JSON、Markdown Linked Artifacts 和 EvidenceBundle 已保留并展示细粒度 testdiff 工件清单。
+- [x] sample case 新增最小 `artifacts/testdiff/{before,after,diff}` 工件；`verification_report_smoke`、`evidence_bundle_smoke`、`two_stage_verification_result_writer_smoke` 覆盖 N39 字段。
+- [ ] 当前只扫描/归档既有 testdiff 文件，不负责生成图片 diff、属性 diff 或性能 diff；真实 testdiff runner 输出目录适配仍待后续完成。
+
+### 36.26 N40：topology before/after match artifact 接入
+
+- [x] 新增 `core/geometry/TopologyCompareArtifact.*`，统一读取 `artifacts/topology_compare.json`。
+- [x] 当不存在 compare artifact 但存在 before/after signature JSON 时，可通过 `TopologySignature::compare()` 在内存生成同构对比对象。
+- [x] 几何差异 tab 会展示 topology compare 摘要和 artifact 路径。
+- [x] EvidenceBundle 新增 `geometry_diff`，包含 available/status/summary、match summary、matches、unmatched before/after 和 artifact。
+- [x] VerificationReport JSON 新增 `geometry_diff`；Markdown 新增 Geometry Diff 区块和 topology compare artifact 链接。
+- [x] sample case 新增最小 `artifacts/topology_compare.json`；`verification_report_smoke`、`evidence_bundle_smoke` 覆盖 N40 字段。
+- [ ] 当前仍不在 Viewer 中提供 before/after signature 选择和 compare artifact 生成交互；真实跨拓扑重建永久命名仍待后续增强。
+
+### 36.27 N41：testgrid artifact 文件服务抽离
+
+- [x] 新增 `core/verify/TestgridArtifactService.*`，集中管理 Case workspace 下 `logs/`、`verification/`、`artifacts/` 的 testgrid 相关路径。
+- [x] 服务支持目录创建、命令 stdout/stderr 写入、phase summary 写入/读取和 JSON artifact 写入。
+- [x] `WorkbenchWindow::persistTestgridResult()` 已改用服务写入 gate/command 日志、读取 summary、写入 `artifacts/testgrid_result.json`。
+- [x] `persistTwoStagePhase()` 已改用服务写入 phase 日志、读取 summary/testdiff、写入 `artifacts/testgrid_before_result.json` / `testgrid_after_result.json`。
+- [x] `persistTwoStageWorkflowResult()` 已改用服务读取 before/after summary 并写入 `testgrid_two_stage_result.json` 与兼容入口 `testgrid_result.json`。
+- [x] 新增 `testgrid_artifact_service_smoke` CTest，覆盖路径约定、目录创建、日志写入、phase summary 解析和 JSON artifact 写入。
+- [ ] 当前只拆出文件/路径服务；Evidence 编排、verification item 更新和 testgrid UI 刷新仍在 `WorkbenchWindow`，后续应继续拆为服务/adapter。
+
+### 36.28 N42：testdiff runner 输出目录适配器
+
+- [x] 新增 `core/verify/TestdiffRunnerAdapter.*`，识别外部 runner 输出中的 `before`、`after`、`diff`、`delta` 或 `testdiff/{before,after,diff}` 目录。
+- [x] adapter 将输出复制归一化到当前 Case workspace 的 `artifacts/testdiff/{before,after,diff}`。
+- [x] adapter 复用 `TestdiffArtifactScanner` 生成 `directories`、`artifact_files`、`artifact_counts` 和 `truncated`。
+- [x] manifest 新增 `adapter` 元数据，记录 source layout、复制文件数和导入目录；不记录 runner 输出绝对路径。
+- [x] 新增 `testdiff_runner_adapter_smoke` CTest，覆盖 before/after/diff 导入、image/property/performance 分类和绝对路径不泄露。
+- [ ] adapter 已接入 testdiff command 配置和 UI `Run testdiff` 入口；当前仍未实现图片/属性/性能 diff 生成算法，只导入并索引外部 runner 已生成工件。
+
+### 36.29 N43：topology compare 生成入口与几何对象跳转
+
+- [x] `TopologyCompareArtifact` 新增从 before/after signature JSON 构造 compare 对象的入口。
+- [x] `TopologyCompareArtifact` 可把 compare 结果写入当前 Case 的 `artifacts/topology_compare.json`，并只记录 Case 相对路径或文件名，避免泄露外部 signature 绝对路径。
+- [x] 几何差异 tab 新增“Generate topology compare”入口，可选择 before/after topology signature JSON 并生成 compare artifact。
+- [x] 生成成功后刷新几何差异摘要、更新 verification metric、登记 Geometry Evidence，并同步写出 EvidenceBundle 与 VerificationReport。
+- [x] 生成 Evidence 会优先关联当前 Viewer 高亮对象；无高亮对象时回退到 compare 中的 unmatched/matched 对象，形成几何对象级跳转线索。
+- [x] 新增 `topology_compare_artifact_smoke` CTest，覆盖 artifact 写入、读取、摘要和本机绝对路径脱敏。
+- [ ] 当前入口仍基于用户选择已落盘 signature JSON；尚未实现 before/after 模型加载会话管理、跨 Case compare 或永久命名增强。
+
+### 36.30 N44：Evidence 与 testgrid UI presenter 拆分
+
+- [x] 新增 `workbench/EvidenceCoordinator.*`，集中处理 EvidenceRecord 追加到 `WorkbenchMockData.evidenceItems` 和 `CaseManifest.evidenceItems` 的同步。
+- [x] `WorkbenchWindow::appendEvidenceRecord()` 已改为委托 `EvidenceCoordinator`，窗口层不再手写 Evidence 数据/manifest 双写。
+- [x] 新增 `workbench/TestgridTablePresenter.*`，把 testgrid rows 转为稳定的 5 列表格单元，并负责刷新 `QTableWidget`。
+- [x] `WorkbenchWindow` 初始化、Case 切换刷新、单阶段 testgrid 结果刷新和二阶段结果刷新已复用 `TestgridTablePresenter`，消除重复填表逻辑。
+- [x] 新增 `workbench_presenter_smoke` CTest，覆盖 Evidence 数据同步和 testgrid rows 到表格单元的映射。
+- [ ] 当前仍只是工作台层 presenter/coordinator 拆分；单阶段 testgrid result artifact 与 verification item 更新已由 N47 抽出，二阶段 final 状态同步已由 N50 抽出，phase 解析/文件写入已由 N53 抽出，final JSON 写入已由 N56 抽出，final 后控件刷新已由 N59 抽出；diff artifact 表刷新和实际报告写出仍在 `WorkbenchWindow`。
+
+### 36.31 N45：testdiff adapter 命令执行与 UI 接入
+
+- [x] `VerificationPlan` 新增 `testdiff_arguments` 和 `testdiff_output_root`，并支持 Case manifest 读写。
+- [x] `ConfigService`、默认配置、本地配置模板和 sample case 已同步新增 testdiff 参数与输出目录配置。
+- [x] 应用启动时会把全局配置中的 testdiff executable/arguments/output root 回填到当前 Case 的 verification plan。
+- [x] 底部 testgrid 面板新增 `Run testdiff` 入口；该入口先执行 `draw_smoke` 门禁，门禁通过后再运行配置的 testdiff 命令。
+- [x] testdiff 命令支持 `{group}`、`{grid}`、`{case}`、`{workspace}`、`{verification}`、`{artifacts}` 和 `{output}` 占位符。
+- [x] 命令 stdout/stderr 写入 `logs/testdiff_runner.stdout.log` / `logs/testdiff_runner.stderr.log`，命令文本写入 `verification/testdiff_summary.txt`。
+- [x] `TestdiffRunnerAdapter` 会把 runner 输出目录中的 before/after/diff 工件导入 `artifacts/testdiff/{before,after,diff}`，并写出 `artifacts/testdiff_adapter_result.json` 和 `artifacts/testdiff_adapter_manifest.json`。
+- [x] 兼容入口 `artifacts/testgrid_result.json` 会更新 `testdiff_entries`、`testdiff_artifacts` 和 adapter 状态，使现有 VerificationReport 与 EvidenceBundle 继续消费真实 testdiff 工件。
+- [x] 新增 `case_manifest_plan_smoke` CTest，覆盖 testdiff plan 新字段读写。
+- [x] 本次因 `CaseManifest.h` 结构体扩展触发过旧对象 ABI 不一致，clean rebuild 后恢复；后续修改核心 manifest/model 结构后应至少执行一次 clean rebuild 或确认所有依赖目标已重编。
+- [ ] 当前不生成图片 diff、属性 diff 或性能 diff，只导入外部 runner 已生成工件；testdiff 命令规划已由 N48 抽出，adapter result 写入与 UI/Evidence/报告触发同步已由 N51 抽出。
+
+### 36.32 N46：topology signature 局部几何与容差近似增强
+
+- [x] `TopologySignature` 记录已补充 `subshape_counts`，用于描述每个子对象下的 vertex/edge/wire/face/shell/solid 等局部拓扑规模。
+- [x] `TopologySignature` 记录已补充 `geometry`，包含 bounding box、bbox center、bbox diagonal、线/面/体 measure 和 center of mass。
+- [x] before/after 近似匹配评分新增局部几何和子拓扑统计项，在策略提示中输出 `same_measure`、`same_bbox_diagonal`、`same_bbox_center`、`same_subshape_counts` 等可审查依据。
+- [x] `topology_signature_smoke` 已覆盖新增字段与非 exact hash 场景下的增强匹配提示。
+- [x] `topology_compare_artifact_smoke` 继续覆盖 compare artifact 写入和脱敏路径，确认增强签名不破坏几何差异工件。
+- [ ] 当前增强仍是启发式拓扑/几何近似匹配，不是完整永久命名算法；真实跨布尔、倒角、重建链路仍需要后续结合建模历史、局部邻接图和更强的几何容差策略。
+
+### 36.33 N47：单阶段 testgrid result writer 服务化
+
+- [x] 新增 `core/verify/TestgridResultWriter.*`，集中负责单阶段 testgrid result 的解析、verification items、diff summary、failure details、timing 和 `artifacts/testgrid_result.json` 组装。
+- [x] `TestgridResultWriter::writeSingleStageResult()` 会写入 Case workspace 的兼容入口 `artifacts/testgrid_result.json`，继续供 VerificationReport 与 EvidenceBundle 消费。
+- [x] `WorkbenchWindow::persistTestgridResult()` 已改为只写命令日志、调用 writer、同步当前 UI 数据、登记 Evidence、保存 Case 和触发报告。
+- [x] 新增 `testgrid_result_writer_smoke` CTest，覆盖 command 输出解析、verification items、timing、before/after comparison、JSON 落盘和 Case 相对路径约定。
+- [ ] 二阶段 final result 的状态同步和报告触发意图已由 N50 抽出，phase 解析/文件写入已由 N53 抽出，final JSON 写入已由 N56 抽出，实际 UI 控件刷新已由 N59 抽出；后续应继续抽取 diff artifact 表刷新和实际报告写出。
+
+### 36.34 N48：testdiff command planner 服务化
+
+- [x] 新增 `core/verify/TestdiffCommandPlanner.*`，集中处理 testdiff executable 校验、输出目录规范化/创建、工作目录 fallback、占位符替换和 `CommandRequest` 组装。
+- [x] 支持 `{group}`、`{grid}`、`{case}`、`{workspace}`、`{verification}`、`{artifacts}` 和 `{output}` 占位符，保持 UI 既有配置语义。
+- [x] `WorkbenchWindow::startConfiguredTestdiffCommand()` 已改为调用 planner，窗口层只保留启动 runner、记录最后输出目录和控制台提示。
+- [x] 新增 `testdiff_command_planner_smoke` CTest，覆盖默认输出目录、相对输出目录、工作目录 fallback、占位符替换和缺少 executable 的错误路径。
+- [x] testdiff adapter result JSON、manifest 合并、Evidence 登记、EvidenceBundle/VerificationReport 刷新已由 N51 拆为 result writer/coordinator。
+
+### 36.35 N49：testdiff 图片/属性/性能工件索引策略
+
+- [x] 新增 `core/verify/TestdiffArtifactIndex.*`，消费 `TestdiffArtifactScanner` 已发现的 `artifact_files`，不直接生成或伪造外部 diff 结果。
+- [x] `artifact_index` 输出 `schema_version`、`supported_kinds`、按 kind/role 统计的 `counts`、配对后的 `groups` 和策略说明。
+- [x] 当前索引支持 image/property/performance 三类关键 diff 工件，按 normalized relative name 将 before/after/diff 归并到同一组，并标记 `paired_with_diff`、`paired`、`diff_only` 或 `incomplete`。
+- [x] `TestdiffArtifactScanner` 已在 manifest 中写入 `artifact_index`；`TestdiffRunnerAdapter` 导入 runner 输出后会自动获得该索引，不记录 runner 输出绝对路径。
+- [x] 新增 `testdiff_artifact_index_smoke` CTest，覆盖 image/property/performance 计数、配对状态、unsupported log 忽略和策略字段；`testdiff_runner_adapter_smoke` 同步覆盖 manifest 集成。
+- [ ] 当前仍不实现图片像素 diff、属性结构 diff 或性能趋势生成；VerificationReport/EvidenceBundle 展示 `artifact_index` 摘要已由 N52 完成，性能文本轻量解析已由 N54 完成，生成器边界已由 N57 固化。
+
+### 36.36 N50：二阶段 final result 状态同步 coordinator
+
+- [x] 新增 `workbench/TwoStageFinalResultCoordinator.*`，负责二阶段 final result 完成后同步 `WorkbenchMockData` 与 `CaseManifest` 中的 testgrid rows、diff summary 和 verification items。
+- [x] coordinator 复用 `EvidenceCoordinator` 登记 `Two-stage testgrid verification` Evidence，并返回 save/report 触发意图，使窗口层不再手写 final Evidence 和 manifest 双写。
+- [x] `WorkbenchWindow::persistTwoStageWorkflowResult()` 已改为调用 coordinator；窗口层保留控件刷新、Case 保存、EvidenceBundle/VerificationReport 实际写出和控制台提示，final JSON 写入已由 N56 抽出。
+- [x] 二阶段 final 完成后会同时触发 `writeEvidenceBundle()` 与 `writeVerificationReport()`，避免新增 final Evidence 后结构化证据包落后于验证报告。
+- [x] `workbench_presenter_smoke` 已覆盖二阶段 final 状态同步、manifest 同步、Evidence 追加和报告触发标志。
+- [ ] 当前二阶段 phase result 的解析/文件写入已由 N53 抽出，final JSON 写入已由 N56 抽出，final UI adapter 已由 N59 抽出；后续可继续抽取 diff artifact 表刷新和报告写出边界。
+
+### 36.37 N51：testdiff adapter result writer/coordinator
+
+- [x] 新增 `core/verify/TestdiffAdapterResultWriter.*`，集中负责 testdiff runner stdout/stderr 日志、`verification/testdiff_summary.txt`、`artifacts/testdiff_adapter_result.json`、`artifacts/testdiff_adapter_manifest.json` 和兼容入口 `artifacts/testgrid_result.json` 写入。
+- [x] writer 复用 `TestgridArtifactService`、`VerificationResultParser` 与 `TestdiffRunnerAdapter`，输出继续包含 `testdiff_entries`、`testdiff_artifacts` 和 `artifact_index`，并保持 Case 相对路径约定。
+- [x] 新增 `workbench/TestdiffAdapterResultCoordinator.*`，负责把 writer result 同步到 `WorkbenchMockData`、`CaseManifest`、verification items 与 Evidence，并返回保存 Case、刷新 EvidenceBundle 和 VerificationReport 的触发意图。
+- [x] `WorkbenchWindow::persistTestdiffAdapterResult()` 已改为调用 writer/coordinator；窗口层只保留控件刷新、Case 保存、报告实际写出和控制台提示。
+- [x] 新增 `testdiff_adapter_result_writer_smoke` CTest，覆盖 adapter result、manifest、兼容 testgrid result、summary/log 写入、artifact_index 和 runner 输出路径脱敏。
+- [x] `workbench_presenter_smoke` 已扩展覆盖 testdiff adapter result 的 UI 数据、manifest、Evidence 和报告触发同步。
+- [ ] 当前仍不生成图片像素 diff 或属性结构 diff；性能文本轻量指标提取已由 N54 完成，但尚未建立性能趋势/基线对比。
+
+### 36.38 N52：VerificationReport/EvidenceBundle 展示 artifact_index 摘要
+
+- [x] `VerificationReportWriter` 已把 `testdiff_artifacts.artifact_index` 清洗后写入 `verification/verification_report.json`，并新增 `artifact_index_summary`，包含总 group 数、配对状态计数和 image/property/performance kind 组数。
+- [x] Markdown 验证报告新增 `Testdiff Artifact Index` 小节，展示 indexed kind 的 before/after/diff/total/groups 计数，以及前 12 个工件组的 kind/key/status/before/after/diff。
+- [x] `EvidenceBundleWriter` 已归档同样的 `artifact_index` 与 `artifact_index_summary`，供后续 UI、知识归档和 case pack 消费。
+- [x] sample case 的 `artifacts/testgrid_result.json` 已补充当前 `artifact_index` 示例，和 scanner/adapter 最新输出契约保持一致。
+- [x] `verification_report_smoke` 与 `evidence_bundle_smoke` 已覆盖 N52 JSON 摘要和 Markdown 小节。
+- [ ] 当前仍只展示/归档外部 runner 已生成工件的索引；N54 已补充属性 JSON 与性能文本轻量解析，但不计算图片像素差异、不解析属性结构差异、不生成性能趋势。
+
+### 36.39 N53：二阶段 phase result writer 服务化
+
+- [x] 新增 `core/verify/TwoStagePhaseResultWriter.*`，集中负责二阶段 before/after phase 的 DRAW gate 日志、可选 testgrid command 日志、summary fallback 解析、phase summary 写入、failure_details/timing 构造和 `artifacts/testgrid_<phase>_result.json` 写入。
+- [x] writer 复用 `TestgridArtifactService`、`VerificationResultParser` 和 `TwoStageVerificationResultWriter::buildPhaseResult()`，保持既有 phase JSON 契约和 `testdiff_artifacts.artifact_index` 输出能力。
+- [x] `WorkbenchWindow::persistTwoStagePhase()` 已改为调用 writer；窗口层只保留 after 阶段 testgrid rows 同步和控制台提示。
+- [x] 删除窗口层旧 `writeTestgridPhaseSummary()` 包装，避免 phase summary 写入路径重复。
+- [x] 新增 `two_stage_phase_result_writer_smoke` CTest，覆盖 gate/command 日志、phase summary、phase JSON、failure/timing 和 testdiff artifact index。
+- [ ] 当前二阶段 final JSON 写入已由 N56 抽出，UI adapter 已由 N59 抽出；EvidenceBundle/VerificationReport 实际刷新仍在 `WorkbenchWindow`，后续可继续拆 report trigger。
+
+### 36.40 N54：testdiff artifact analysis 最小解析策略
+
+- [x] 新增 `core/verify/TestdiffArtifactAnalysis.*`，消费 `artifact_index`，不直接扫描外部路径、不引入第三方依赖。
+- [x] image 工件分析记录 before/after/diff 可用性、配对状态和策略说明，明确 `diff_supplied_by_runner`，不在本工具中生成像素 diff。
+- [x] property 工件分析对已有 JSON 做最小解析，输出 JSON 类型、顶层 key 数和 key 摘要；非法 JSON 会给出错误摘要。
+- [x] performance 工件分析从文本中提取简单数值指标，支持带名称的百分比/ms 等常见 runner 输出，也支持单值行。
+- [x] `TestdiffArtifactScanner` 已在 `testdiff_artifacts` 中写入 `artifact_analysis`，因此 adapter、单阶段和二阶段 result 会自然携带该结构。
+- [x] `VerificationReportWriter` 与 `EvidenceBundleWriter` 已归档 `artifact_analysis`；Markdown 验证报告新增 `Testdiff Artifact Analysis` 小节。
+- [x] sample case 的 `artifacts/testgrid_result.json` 已补充 `artifact_analysis` 示例。
+- [x] 新增 `testdiff_artifact_analysis_smoke`，并扩展 `testdiff_runner_adapter_smoke`、`testdiff_adapter_result_writer_smoke`、`verification_report_smoke`、`evidence_bundle_smoke` 覆盖该路径。
+- [x] 当前仍不生成真实图片像素 diff、不做属性结构 diff、不维护性能趋势基线；N57 已将该边界固化为结构化 generation policy，后续若引入真实生成器，还需定义 runner 输入/输出契约和 artifact 敏感信息脱敏边界。
+
+### 36.41 N55：artifact_index / artifact_analysis 差异视图
+
+- [x] 新增 `workbench/DiffArtifactsPresenter.*`，将 `testdiff_artifacts.artifact_index.groups` 转为差异 tab 的 kind/key/status/before/after/diff 表格行。
+- [x] presenter 同时将 `artifact_analysis.groups` 转为 kind/key/status/analysis 表格行，image/property/performance 分别展示 runner diff 来源、属性 JSON 摘要和性能指标摘要。
+- [x] 差异对比 tab 新增 artifact index 表和 artifact analysis 表，继续保留 topology compare 入口和原 diff summary。
+- [x] Case 切换、topology compare、单阶段 testgrid、testdiff adapter 和二阶段 final result 更新后会刷新差异表。
+- [x] `workbench_presenter_smoke` 已覆盖 N55 行模型，避免 UI 表格契约退化。
+- [x] artifact 打开、kind/status 过滤和独立 DiffPanel 已由 N58/N61 补齐；后续仍可增强图片内嵌预览、路径复制和更细的工件搜索。
+
+### 36.42 N56：二阶段 final result writer 服务化
+
+- [x] 新增 `core/verify/TwoStageFinalResultWriter.*`，复用 `TwoStageVerificationResultWriter::buildWorkflowResult()` 和 `TestgridArtifactService` 写入 final JSON。
+- [x] writer 同时写入 `artifacts/testgrid_two_stage_result.json` 与兼容入口 `artifacts/testgrid_result.json`，保持 VerificationReport、EvidenceBundle 和差异 tab 的既有消费路径。
+- [x] `WorkbenchWindow::persistTwoStageWorkflowResult()` 已改为先调用 writer 写出最新 final artifact，再调用 `TwoStageFinalResultCoordinator` 同步 UI 数据、Evidence 和报告触发意图。
+- [x] 由于 final artifact 先写入，N55 差异表刷新会读取最新 `artifact_index` / `artifact_analysis`，避免显示上一轮 testgrid result。
+- [x] `two_stage_verification_result_writer_smoke` 已扩展覆盖 final writer 的实际落盘和兼容入口内容。
+- [x] 当前 final 后 `VerificationPanel`、`EvidencePanel`、testgrid 表和保存/报告触发动作已由 N59 抽为 UI adapter；diff artifact 表刷新和 EvidenceBundle/VerificationReport 实际写出仍由 `WorkbenchWindow` 调用。
+
+### 36.43 N57：testdiff 真实生成器边界策略
+
+- [x] 新增 `core/verify/TestdiffGenerationPolicy.*`，把图片像素 diff、属性结构 diff 和性能趋势 diff 的生成器状态统一表达为 boundary-only policy。
+- [x] policy 会记录每类生成器的 `enabled=false`、`generation_performed=false`、候选输入、当前输入计数、阻塞原因和后续契约，不生成任何图片、属性结构 diff、性能趋势 artifact。
+- [x] `TestdiffArtifactAnalysis::build()` 已在 `artifact_analysis.generation_policy` 中携带该策略，因此 scanner、adapter、单阶段/二阶段 result、VerificationReport 和 EvidenceBundle 可以沿既有路径归档该边界。
+- [x] sample case 的 `artifacts/testgrid_result.json` 已补充 `generation_policy` 示例，保持演示数据与当前 schema 一致。
+- [x] 新增 `testdiff_generation_policy_smoke`，并扩展 `testdiff_artifact_analysis_smoke`，分别覆盖策略服务本身和 artifact analysis 集成路径。
+- [x] 当前仍不启用真实生成器；N60 已先定义 opt-in 配置入口、输出命名和脱敏边界，后续实现具体像素/结构/趋势算法前仍需补齐容差/阈值策略和失败报告格式。
+
+### 36.44 N58：差异视图 artifact 打开/跳转与过滤
+
+- [x] `DiffArtifactsPresenter` 已支持可选 kind/status 过滤，并继续输出稳定的 index/analysis 表格行。
+- [x] presenter 已兼容 N54 当前 `artifact_analysis` schema：image 使用 `before_supplied/after_supplied`，property 使用 `analysis.json`，同时保留旧字段兼容。
+- [x] 差异对比 tab 新增 kind/status 下拉过滤和 `Open artifact` 入口；索引表双击可打开当前行 artifact，分析表双击可跳转到对应索引工件。
+- [x] artifact 打开逻辑限制在当前 Case workspace 内，拒绝绝对路径、URL 和越界相对路径；文本、日志、JSON、diff/patch 等在底部控制台预览，图片等二进制工件走系统关联程序。
+- [x] `workbench_presenter_smoke` 已覆盖过滤行模型和当前 analysis schema 摘要。
+- [x] 差异页已由 N61 拆为独立 `DiffPanel`；后续可增加图片内嵌预览、路径复制和更细的搜索/过滤。
+
+### 36.45 N59：二阶段 final UI adapter 与报告触发边界
+
+- [x] 新增 `workbench/TwoStageFinalResultUiAdapter.*`，将二阶段 final 后控件刷新从 `WorkbenchWindow::persistTwoStageWorkflowResult()` 的手写块抽出。
+- [x] UI adapter 负责刷新 diff label、testgrid 表、VerificationPanel 和 EvidencePanel，并返回 `refreshDiffArtifacts`、`saveCaseManifest`、`writeEvidenceBundle`、`writeVerificationReport` 动作。
+- [x] `WorkbenchWindow` 仍负责 final writer、coordinator 调用、diff artifact 表刷新、Case 保存和 EvidenceBundle/VerificationReport 实际写出，保持外部命令编排和文件写入顺序不变。
+- [x] `workbench_presenter_smoke` 已覆盖 UI adapter 的控件刷新和保存/报告触发动作。
+- [x] 二阶段 final 输入组装已由 N62 抽到 workflow result builder；diff artifact 控件已由 N61 迁入独立 DiffPanel。
+
+### 36.46 N60：testdiff 真实生成器 opt-in 契约与输出命名
+
+- [x] 新增 `core/verify/TestdiffGenerationContract.*`，把真实生成器未来启用方式固化为 opt-in 契约。
+- [x] 契约定义 `verification.testdiff_generation.enabled_generators` manifest 字段、默认禁用、Case 相对输出根 `artifacts/testdiff/generated` 和 sidecar 后缀 `.meta.json`。
+- [x] 契约覆盖 `image_pixel_diff`、`property_structural_diff`、`performance_trend_diff` 三类生成器的 required inputs、generated role、输出文件模式和 sidecar 字段。
+- [x] 契约明确隐私边界：生成 artifact 路径必须保持 Case 相对，sidecar 不记录 runner 输出绝对路径，私有 CAD/model 文件名在报告导出前必须脱敏。
+- [x] `TestdiffGenerationPolicy::build()` 已在 `generation_policy.contract` 中携带该契约，但仍保持 `policy=boundary_only`、`generation_performed=false`、各生成器 `enabled=false`。
+- [x] sample case 的 `artifacts/testgrid_result.json` 已补充 `generation_policy.contract` 示例，保持演示 schema 与当前代码一致。
+- [x] 新增 `testdiff_generation_contract_smoke`，并扩展 `testdiff_generation_policy_smoke` 与 `testdiff_artifact_analysis_smoke` 覆盖 contract 集成路径。
+- [ ] 当前仍不实现图片像素 diff、属性结构 diff 或性能趋势 diff 算法；后续真实生成器必须在 opt-in、容差/阈值、失败报告和隐私脱敏都有 smoke 覆盖后再启用。
+
+### 36.47 N61：Diff Compare tab 独立 DiffPanel
+
+- [x] 新增 `workbench/DiffPanel.*`，集中持有 Diff Compare tab 的摘要 label、artifact kind/status 过滤、artifact index 表、artifact analysis 表和当前 `testdiff_artifacts` 状态。
+- [x] DiffPanel 复用 `DiffArtifactsPresenter` 刷新表格，保留 index 表按 diff/after/before 优先打开、analysis 表双击跳转到对应索引 artifact 的行为。
+- [x] DiffPanel 通过 `generateTopologyCompareRequested` 和 `artifactOpenRequested(path, origin)` 信号把拓扑 compare 生成和 artifact 打开请求交回窗口层。
+- [x] `WorkbenchWindow` 已不再持有差异表、过滤器或当前 artifact JSON；窗口层只负责读取 `artifacts/testgrid_result.json`、喂给 DiffPanel，并执行 Case workspace 内的安全打开/预览。
+- [x] `workbench_presenter_smoke` 已覆盖 DiffPanel 的摘要刷新、表格刷新和首选 artifact 路径选择。
+- [x] DiffPanel 已补充图片内嵌预览、路径复制和全文/文件名搜索；图片预览仍限制在当前 Case workspace 内的相对 artifact 路径。
+
+### 36.48 N62：二阶段 final workflow result builder
+
+- [x] 新增 `core/verify/TwoStageFinalResultBuilder.*`，集中组装二阶段 final writer/coordinator 需要的输入。
+- [x] Builder 负责读取 before/after phase rows，生成 before/after comparison，解析 after command 或 summary 中的 testdiff，构造 failure_details、timing 和 `testdiff_artifacts`。
+- [x] `WorkbenchWindow::persistTwoStageWorkflowResult()` 已改为调用 builder，再调用 final writer/coordinator；窗口层不再手写 comparison/testdiff/failure/timing/artifact 输入组装。
+- [x] 新增 `two_stage_final_result_builder_smoke`，覆盖 writer input、回归对比、失败明细、耗时汇总、testdiff artifact 扫描和本机绝对路径不泄露。
+- [x] EvidenceBundle/VerificationReport 实际写出已由 N63 抽到 `ReportRefreshCoordinator`。
+
+### 36.49 N63：EvidenceBundle / VerificationReport report refresh coordinator
+
+- [x] 新增 `workbench/ReportRefreshCoordinator.*`，集中处理 EvidenceBundle 与 VerificationReport 的实际写出、目标路径计算和错误汇总。
+- [x] `WorkbenchWindow` 已改为提交 `ReportRefreshRequest`，由 coordinator 调用 `EvidenceBundleWriter` 与 `VerificationReportWriter`；窗口层只把错误输出到底部控制台。
+- [x] 保持既有保存 Case、导出报告、patch/testgrid/testdiff/二阶段验证后的报告刷新顺序，不改变报告内容 writer。
+- [x] 新增 `report_refresh_coordinator_smoke`，覆盖 evidence bundle、verification markdown、verification JSON 三类输出路径。
+- [ ] `WorkbenchWindow` 仍保留 Case 保存、外部命令启动和 UI 刷新编排；后续继续收束这些职责。
+
+### 36.50 N64：DiffPanel 图片预览、路径复制与搜索
+
+- [x] `DiffArtifactsPresenter::Filter` 新增搜索文本，artifact index 与 analysis 行可按 kind、key、status、路径和分析摘要过滤。
+- [x] `DiffPanel` 新增搜索框、`Copy path` 和 `Preview image` 入口；复制与预览都基于当前选中 artifact 的 Case 相对路径。
+- [x] 图片预览请求通过 `artifactPreviewRequested` 交给 `WorkbenchWindow`，窗口层复用 Case workspace 安全路径校验后加载 `QPixmap` 并回填 panel。
+- [x] `workbench_presenter_smoke` 已覆盖搜索过滤和预览状态。
+- [ ] 预览区目前只做静态图片缩放展示；真实 testdiff 生成器启用后可继续补 before/after/diff 同屏比较和像素级标注。
+
+### 36.51 N65：本地 build/run 脚本入口
+
+- [x] 新增 `scripts/build.ps1`，统一封装 CMake configure、build 和 CTest，可通过 `-NoConfigure`、`-NoBuild`、`-NoTest`、`-TestRegex` 做最小验证。
+- [x] 新增 `scripts/run.ps1`，统一定位并启动 `OCCTDebug.exe`，支持 `-BuildIfMissing` 在启动前补构建。
+- [x] 脚本通过 `OCCTDEBUG_VSDEVCMD`、`vswhere` 或当前环境发现 Visual Studio developer environment，不写死个人机器路径。
+- [x] README 已补充脚本运行方式，`DEVELOPMENT_CHECKLIST.md` 已更新基础工程验收状态。
+- [ ] 脚本当前仍以 Debug preset 为默认入口；后续若增加 Release/RelWithDebInfo preset，应扩展参数和文档示例。
+
+### 36.52 N66：CommandRunner 取消语义与 UI 入口
+
+- [x] `CommandResult` 新增 `canceled` 字段，`CommandRunner::cancel()` 会在最终 result 中明确标记用户取消，不再只能靠退出码推断。
+- [x] 新增 `command_runner_cancel_smoke`，启动长时间 PowerShell 命令后取消，验证 result 标记、输出未完成和 runner 状态恢复。
+- [x] DRAW、环境采集、testgrid/testdiff/二阶段验证和 patch 命令已增加最小 `Cancel` 按钮，复用统一 `cancelRunner()` helper。
+- [x] testgrid/testdiff/二阶段和 patch 编排收到 canceled result 后会停止后续阶段并恢复 phase/mode 状态。
+- [ ] 当前取消入口仍是最小按钮；后续应补任务队列、按钮 enable/disable 状态和更细粒度取消日志 artifact。
+
+### 36.53 N67：Shape 基础统计同步
+
+- [x] `WorkbenchWindow::syncGeometryTopologyStats()` 会把 Viewer 的 `topologySummary()` 同步为几何检查表中的 `Topology stats` 行。
+- [x] Demo shape 和导入模型加载成功后都会刷新该统计，并同步到 `CaseManifest::geometryChecks`。
+- [x] 该能力复用现有 `OcctViewerWidget::topologySummary()`，当前不引入新的拓扑统计模型或第三方依赖。
+- [ ] 当前统计仍是摘要文本行；后续可拆为专门的 topology stats 数据模型和表格列。
+
+### 36.54 N68：输入文件 hash 记录与报告摘要
+
+- [x] `CaseManifest` 新增 `InputFileRecord` 与 `input.files` JSON 契约，字段包含 `path`、`original_name`、`sha256`、`bytes` 和 `imported_at`。
+- [x] 几何模型导入成功后会对复制到 Case `input/` 的目标文件计算 SHA-256，同一路径重复导入会更新记录而不是重复追加。
+- [x] `MarkdownReportGenerator` 的 `repro_report.md` 新增“输入文件摘要”表，展示 Case 相对路径、原始文件名、大小、SHA-256 和导入时间。
+- [x] `case_manifest_plan_smoke` 覆盖 `input.files` JSON 往返；`markdown_report_generator_smoke` 覆盖报告中的输入文件摘要与本机路径不泄露。
+- [ ] 当前 hash 记录只接入几何模型导入入口；后续新建 Case 问题录入、普通附件导入和 case pack 导入也应复用同一契约。
+
+### 36.55 N69：C++ 最小复现工程模板
+
+- [x] 新增 `core/repro/CppReproTemplateWriter.*`，统一生成 `repro/cpp_minimal/CMakeLists.txt`、`main.cpp`、`README.md` 和 `repro_from_draw.tcl`。
+- [x] 复现脚本 tab 新增 `C++ Repro` 入口，生成模板后会保存当前 DRAW 脚本、登记 Repro Evidence，并刷新 EvidenceBundle / VerificationReport。
+- [x] 模板采用 `find_package(OpenCASCADE CONFIG QUIET)`，由使用者在独立构建时传入 `-DOpenCASCADE_DIR=<occt>/lib/cmake/opencascade`，不写入个人机器路径。
+- [x] 新增 `cpp_repro_template_writer_smoke`，覆盖模板文件、当前 DRAW 脚本副本、Case id 注入和本机绝对路径不泄露。
+- [ ] 当前模板只提供可编译的最小 OCCT C++ 工程骨架；后续仍需把真实 Case 的输入文件、几何构造和失败断言逐步映射为更贴近问题的 C++ 复现代码。
+
+### 36.56 N70：UI 侧超时、取消和任务状态
+
+- [x] `CommandRequest` 新增 `timeoutMs`，`CommandRunner` 可在命令超时时终止运行中的进程。
+- [x] `CommandResult` 新增 `timedOut` / `timeoutMs`，与既有 `canceled` 一起形成最小任务结果状态。
+- [x] DRAW、环境采集、testgrid/testdiff、二阶段验证和 patch 命令已设置统一超时常量，UI 日志输出 `passed/failed/canceled/timed_out`。
+- [x] env/DRAW/repro pack/patch/testgrid/testdiff 相关 result artifact 已记录取消、超时和超时时间，便于后续报告与任务历史消费。
+- [x] 新增 `command_runner_timeout_smoke`，覆盖长时间命令超时后 result 标记、输出截断和 runner 状态恢复。
+- [ ] 当前仍是分散在各命令入口的最小任务状态记录；后续应补独立 TaskHistory/TaskPanel，统一显示任务队列、开始/结束时间、日志路径和取消入口。
+
+### 36.57 N71：crash dump 文件归档
+
+- [x] 新增 `core/case/CrashDumpArchive.*`，负责将 `.dmp/.mdmp/.dump` 复制到当前 Case `artifacts/crash/` 并计算 SHA-256。
+- [x] 每个 dump 会生成同名 `.json` manifest，记录 Case 相对 artifact 路径、原始文件名、bytes、sha256 和归档时间，不写入源文件或 workspace 的本机绝对路径。
+- [x] Evidence 面板新增 `Archive dump` 入口，归档成功后登记 `Crash Dump` Evidence，并刷新 EvidenceBundle / VerificationReport。
+- [x] 新增 `crash_dump_archive_smoke`，覆盖归档文件、manifest schema、hash 一致性和本机绝对路径不泄露。
+- [ ] 当前只做 dump 文件归档和证据登记，不解析 dump 内容；后续可在明确本地调试器/符号配置后接入栈摘要提取。
+
+### 36.58 N72：复现状态判定与 Case 写回
+
+- [x] `CaseManifest` 新增 `repro.status` 子对象，记录 `overall`、`draw`、`cpp`、`testgrid`、`updated_at` 和 `summary`。
+- [x] 新增 `core/repro/ReproStatusEvaluator.*`，集中判定命令 passed/failed/canceled/timed_out、C++ scaffold generated 和 testgrid passed/failed/blocked 状态。
+- [x] DRAW 运行结果落盘后会根据退出状态与 DRAW 日志分析写回 `repro.status.draw` 和 `overall`。
+- [x] C++ 复现模板生成成功后会写回 `repro.status.cpp=generated`，不把模板生成误判为真实 C++ 复现通过。
+- [x] testgrid 单阶段结果落盘后会写回 `repro.status.testgrid`，并把统一摘要同步为验证面板 `repro status` 指标。
+- [x] 新增 `repro_status_evaluator_smoke`，并扩展 `case_manifest_plan_smoke` 覆盖 `repro.status` JSON 往返。
+- [ ] 当前复现状态仍是聚合摘要；后续 TaskHistory/TaskPanel 应记录每次运行的时间线和日志路径，而不是只保留最后一次状态。
+
+### 36.59 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug --output-on-failure` 通过。
-- [ ] 检查并修正 `cmake/occt_setup_install.cmake` 的 Release DLL 路径。
+- [ ] 修改 `CaseManifest` / `WorkbenchMockData` / 核心公共 struct 后，优先执行一次 clean rebuild，避免本地 Ninja/MSVC 头依赖未触发导致旧对象 ABI 不一致。
+- [x] 已检查 `cmake/occt_setup_install.cmake` 的 Release DLL 路径，当前指向 `lib/Release/bin`。
 
 ## 37. 结论
 
