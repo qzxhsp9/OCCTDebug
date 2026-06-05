@@ -106,6 +106,41 @@ int main(int argc, char** argv)
         return 11;
     }
 
+    withInput.testdiffGenerationConfig.enabledGenerators = {
+        QStringLiteral("image_pixel_diff"),
+        QStringLiteral("performance_trend_diff"),
+    };
+    withInput.testdiffGenerationConfig.imagePixelTolerance = 2.0;
+    withInput.testdiffGenerationConfig.propertyNumericTolerance = 0.00001;
+    withInput.testdiffGenerationConfig.performanceRegressionPercent = 7.5;
+    withInput.testdiffGenerationConfig.failureReportPath = QStringLiteral("artifacts/testdiff/generated/failure_report.json");
+    const QJsonObject generationObject =
+        withInput.toJson().value(QStringLiteral("verification")).toObject().value(QStringLiteral("testdiff_generation")).toObject();
+    if (generationObject.value(QStringLiteral("enabled_generators")).toArray().size() != 2
+        || generationObject.value(QStringLiteral("tolerances")).toObject()
+                .value(QStringLiteral("image_pixel_diff")).toObject()
+                .value(QStringLiteral("pixel_abs")).toDouble() != 2.0
+        || generationObject.value(QStringLiteral("thresholds")).toObject()
+                .value(QStringLiteral("performance_trend_diff")).toObject()
+                .value(QStringLiteral("regression_percent")).toDouble() != 7.5
+        || generationObject.value(QStringLiteral("failure_report")).toObject().value(QStringLiteral("path")).toString()
+            != QStringLiteral("artifacts/testdiff/generated/failure_report.json"))
+    {
+        QTextStream(stderr) << "testdiff generation config was not serialized\n";
+        return 12;
+    }
+    QString generationRoundTripError;
+    const std::optional<occtdebug::CaseManifest> generationRoundTrip =
+        occtdebug::CaseManifest::fromJson(withInput.toJson(), &generationRoundTripError);
+    if (!generationRoundTrip.has_value()
+        || generationRoundTrip->testdiffGenerationConfig.enabledGenerators.size() != 2
+        || generationRoundTrip->testdiffGenerationConfig.imagePixelTolerance != 2.0
+        || generationRoundTrip->testdiffGenerationConfig.performanceRegressionPercent != 7.5)
+    {
+        QTextStream(stderr) << "testdiff generation config did not round-trip: " << generationRoundTripError << "\n";
+        return 13;
+    }
+
     QTextStream(stdout) << "CASE_MANIFEST_PLAN_SMOKE_OK\n";
     return 0;
 }

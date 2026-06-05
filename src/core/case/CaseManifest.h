@@ -85,6 +85,15 @@ struct VerificationPlan
     QString testdiffOutputRoot;
 };
 
+struct TestdiffGenerationConfig
+{
+    QVector<QString> enabledGenerators;
+    double imagePixelTolerance = 0.0;
+    double propertyNumericTolerance = 0.000001;
+    double performanceRegressionPercent = 5.0;
+    QString failureReportPath;
+};
+
 struct ReproStatus
 {
     QString overall;
@@ -154,6 +163,7 @@ struct CaseManifest
     QVector<EvidenceRecord> evidenceItems;
     QVector<LabelValue> verificationItems;
     VerificationPlan verificationPlan;
+    TestdiffGenerationConfig testdiffGenerationConfig;
     QVector<SimilarCase> similarCases;
     QVector<TestgridRow> testgridRows;
     QVector<LabelValue> patchReviewItems;

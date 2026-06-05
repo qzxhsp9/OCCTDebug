@@ -22,6 +22,12 @@ int intValue(const QJsonObject& object, const char* key, int fallback = 0)
     return value.isDouble() ? value.toInt() : fallback;
 }
 
+double doubleValue(const QJsonObject& object, const char* key, double fallback = 0.0)
+{
+    const QJsonValue value = object.value(QLatin1String(key));
+    return value.isDouble() ? value.toDouble() : fallback;
+}
+
 QJsonObject objectValue(const QJsonObject& object, const char* key)
 {
     const QJsonValue value = object.value(QLatin1String(key));
@@ -251,6 +257,21 @@ QVector<TestgridRow> readTestgridRows(const QJsonArray& array)
     return out;
 }
 
+QVector<QString> readStringArray(const QJsonArray& array)
+{
+    QVector<QString> out;
+    out.reserve(array.size());
+    for (const QJsonValue& value : array)
+    {
+        const QString text = value.toString();
+        if (!text.isEmpty())
+        {
+            out.push_back(text);
+        }
+    }
+    return out;
+}
+
 VerificationPlan readVerificationPlan(const QJsonObject& object)
 {
     return {
@@ -263,6 +284,29 @@ VerificationPlan readVerificationPlan(const QJsonObject& object)
         stringValue(object, "testdiff_executable"),
         stringValue(object, "testdiff_arguments"),
         stringValue(object, "testdiff_output_root"),
+    };
+}
+
+TestdiffGenerationConfig readTestdiffGenerationConfig(const QJsonObject& object)
+{
+    const QJsonObject tolerances = objectValue(object, "tolerances");
+    const QJsonObject thresholds = objectValue(object, "thresholds");
+    const QJsonObject imageTolerance = objectValue(tolerances, "image_pixel_diff");
+    const QJsonObject propertyTolerance = objectValue(tolerances, "property_structural_diff");
+    const QJsonObject performanceThreshold = objectValue(thresholds, "performance_trend_diff");
+    const QJsonObject failureReport = objectValue(object, "failure_report");
+    return {
+        readStringArray(arrayValue(object, "enabled_generators")),
+        imageTolerance.isEmpty()
+            ? doubleValue(tolerances, "image_pixel", 0.0)
+            : doubleValue(imageTolerance, "pixel_abs", 0.0),
+        propertyTolerance.isEmpty()
+            ? doubleValue(tolerances, "property_numeric", 0.000001)
+            : doubleValue(propertyTolerance, "numeric_abs", 0.000001),
+        performanceThreshold.isEmpty()
+            ? doubleValue(thresholds, "performance_regression_percent", 5.0)
+            : doubleValue(performanceThreshold, "regression_percent", 5.0),
+        stringValue(failureReport, "path", QStringLiteral("artifacts/testdiff/generated/failure_report.json")),
     };
 }
 
@@ -442,6 +486,19 @@ QJsonArray writeTestgridRows(const QVector<TestgridRow>& values)
     return array;
 }
 
+QJsonArray writeStringArray(const QVector<QString>& values)
+{
+    QJsonArray array;
+    for (const QString& value : values)
+    {
+        if (!value.isEmpty())
+        {
+            array.append(value);
+        }
+    }
+    return array;
+}
+
 QJsonObject writeVerificationPlan(const VerificationPlan& value)
 {
     return {
@@ -454,6 +511,35 @@ QJsonObject writeVerificationPlan(const VerificationPlan& value)
         {QStringLiteral("testdiff_executable"), value.testdiffExecutable},
         {QStringLiteral("testdiff_arguments"), value.testdiffArguments},
         {QStringLiteral("testdiff_output_root"), value.testdiffOutputRoot},
+    };
+}
+
+QJsonObject writeTestdiffGenerationConfig(const TestdiffGenerationConfig& value)
+{
+    const QString failureReportPath = value.failureReportPath.isEmpty()
+        ? QStringLiteral("artifacts/testdiff/generated/failure_report.json")
+        : value.failureReportPath;
+    return {
+        {QStringLiteral("enabled_generators"), writeStringArray(value.enabledGenerators)},
+        {QStringLiteral("tolerances"), QJsonObject {
+             {QStringLiteral("image_pixel_diff"), QJsonObject {
+                  {QStringLiteral("pixel_abs"), value.imagePixelTolerance},
+                  {QStringLiteral("max_changed_ratio"), 0.0},
+              }},
+             {QStringLiteral("property_structural_diff"), QJsonObject {
+                  {QStringLiteral("numeric_abs"), value.propertyNumericTolerance},
+                  {QStringLiteral("numeric_rel"), value.propertyNumericTolerance},
+              }},
+         }},
+        {QStringLiteral("thresholds"), QJsonObject {
+             {QStringLiteral("performance_trend_diff"), QJsonObject {
+                  {QStringLiteral("regression_percent"), value.performanceRegressionPercent},
+                  {QStringLiteral("min_sample_count"), 1},
+              }},
+         }},
+        {QStringLiteral("failure_report"), QJsonObject {
+             {QStringLiteral("path"), failureReportPath},
+         }},
     };
 }
 
@@ -543,6 +629,7 @@ std::optional<CaseManifest> CaseManifest::fromJson(const QJsonObject& object, QS
     const QJsonObject verification = objectValue(object, "verification");
     manifest.verificationItems = readLabelValues(arrayValue(verification, "items"));
     manifest.verificationPlan = readVerificationPlan(objectValue(verification, "testgrid_plan"));
+    manifest.testdiffGenerationConfig = readTestdiffGenerationConfig(objectValue(verification, "testdiff_generation"));
 
     manifest.similarCases = readSimilarCases(arrayValue(object, "similar_cases"));
 
@@ -653,6 +740,7 @@ QJsonObject CaseManifest::toJson() const
         {QStringLiteral("verification"), QJsonObject {
              {QStringLiteral("items"), writeLabelValues(verificationItems)},
              {QStringLiteral("testgrid_plan"), writeVerificationPlan(verificationPlan)},
+             {QStringLiteral("testdiff_generation"), writeTestdiffGenerationConfig(testdiffGenerationConfig)},
          }},
         {QStringLiteral("similar_cases"), writeSimilarCases(similarCases)},
         {QStringLiteral("consoles"), QJsonObject {

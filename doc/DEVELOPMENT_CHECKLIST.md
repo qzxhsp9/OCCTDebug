@@ -121,11 +121,12 @@
 - [x] testdiff artifact 已生成 `artifact_analysis`，可对 runner 已提供的 image/property/performance 工件做可用性、属性 JSON 和性能文本指标的轻量解析。
 - [x] testdiff 真实生成器边界已固化为 `TestdiffGenerationPolicy`，`artifact_analysis.generation_policy` 会记录候选输入、禁用状态、阻塞原因和后续契约，当前不生成伪 artifact。
 - [x] testdiff 真实生成器 opt-in 契约已固化为 `TestdiffGenerationContract`，定义 manifest 字段、Case 相对输出根、sidecar 命名、三类生成器输出模式和隐私边界。
+- [x] testdiff 真实生成器配置已进入 `CaseManifest.verification.testdiff_generation`，包含 opt-in 列表、图片/属性容差、性能回归阈值和失败报告路径；策略会输出有效配置与 `failure_report` 状态，但仍不启用生成算法。
 - [x] testdiff adapter runner 日志、summary、adapter result/manifest 和兼容 `testgrid_result.json` 写入已抽到 `TestdiffAdapterResultWriter`。
 - [ ] OCCT Viewer 尚需更强的跨拓扑重建永久命名，当前 compare artifact 生成仍基于已落盘 topology signature 和启发式局部几何匹配。
 - [x] EvidenceBundle/VerificationReport 实际写出已抽成 `ReportRefreshCoordinator`，并由 `report_refresh_coordinator_smoke` 覆盖。
 - [ ] `WorkbenchWindow` 中 Case 保存、命令编排和 UI 刷新职责仍需继续收束。
-- [ ] testdiff 仍未实现图片 diff/属性结构 diff/性能趋势生成算法；当前只导入、索引、轻量解析 runner 已生成的 before/after/diff 工件，并输出 boundary-only 生成策略与 opt-in 输出契约。
+- [ ] testdiff 仍未实现图片 diff/属性结构 diff/性能趋势生成算法；当前只导入、索引、轻量解析 runner 已生成的 before/after/diff 工件，并输出 boundary-only 生成策略、opt-in 输出契约、容差/阈值配置和失败报告契约。
 - [x] 已有 testgrid/testdiff 结果解析骨架。
 - [x] testgrid/testdiff 最小 runner 已接入 UI 和 Case：支持 `draw_smoke` 前置门禁、`testgrid_plan` 配置和结果落盘。
 - [x] testgrid before/after 最小对比已支持可选 `verification/testgrid_before.txt` / `verification/testgrid_after.txt`，并写入 VerificationReport 与 EvidenceBundle。

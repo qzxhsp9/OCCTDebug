@@ -38,9 +38,84 @@ QString TestdiffGenerationContract::caseManifestField()
     return QStringLiteral("verification.testdiff_generation.enabled_generators");
 }
 
+QString TestdiffGenerationContract::configManifestField()
+{
+    return QStringLiteral("verification.testdiff_generation");
+}
+
+QString TestdiffGenerationContract::failureReportPath()
+{
+    return outputRoot() + QStringLiteral("/failure_report.json");
+}
+
 QString TestdiffGenerationContract::sidecarSuffix()
 {
     return QStringLiteral(".meta.json");
+}
+
+QJsonObject TestdiffGenerationContract::defaultConfig()
+{
+    return {
+        {QStringLiteral("schema_version"), 1},
+        {QStringLiteral("enabled_generators"), QJsonArray {}},
+        {QStringLiteral("tolerances"), QJsonObject {
+             {QStringLiteral("image_pixel_diff"), QJsonObject {
+                  {QStringLiteral("pixel_abs"), 0.0},
+                  {QStringLiteral("max_changed_ratio"), 0.0},
+              }},
+             {QStringLiteral("property_structural_diff"), QJsonObject {
+                  {QStringLiteral("numeric_abs"), 0.000001},
+                  {QStringLiteral("numeric_rel"), 0.000001},
+              }},
+         }},
+        {QStringLiteral("thresholds"), QJsonObject {
+             {QStringLiteral("performance_trend_diff"), QJsonObject {
+                  {QStringLiteral("regression_percent"), 5.0},
+                  {QStringLiteral("min_sample_count"), 1},
+              }},
+         }},
+        {QStringLiteral("failure_report"), QJsonObject {
+             {QStringLiteral("path"), failureReportPath()},
+             {QStringLiteral("include_sanitized_inputs"), true},
+             {QStringLiteral("issue_fields"), QJsonArray {
+                  QStringLiteral("generator_id"),
+                  QStringLiteral("status"),
+                  QStringLiteral("reason"),
+                  QStringLiteral("blocked_by"),
+                  QStringLiteral("input_artifacts"),
+                  QStringLiteral("config"),
+              }},
+         }},
+    };
+}
+
+QJsonObject TestdiffGenerationContract::failureReportContract()
+{
+    return {
+        {QStringLiteral("schema_version"), 1},
+        {QStringLiteral("path"), failureReportPath()},
+        {QStringLiteral("written_only_when_generation_attempted"), true},
+        {QStringLiteral("status_values"), QJsonArray {
+             QStringLiteral("blocked"),
+             QStringLiteral("failed"),
+             QStringLiteral("skipped"),
+             QStringLiteral("passed"),
+         }},
+        {QStringLiteral("issue_fields"), QJsonArray {
+             QStringLiteral("generator_id"),
+             QStringLiteral("kind"),
+             QStringLiteral("status"),
+             QStringLiteral("reason"),
+             QStringLiteral("blocked_by"),
+             QStringLiteral("input_artifacts"),
+             QStringLiteral("config"),
+         }},
+        {QStringLiteral("privacy_rules"), QJsonArray {
+             QStringLiteral("Failure reports store case-relative artifact paths only."),
+             QStringLiteral("Absolute runner output paths must be reduced to sanitized labels."),
+             QStringLiteral("Private model filenames must not be exported without explicit user action."),
+         }},
+    };
 }
 
 QJsonObject TestdiffGenerationContract::build()
@@ -102,9 +177,12 @@ QJsonObject TestdiffGenerationContract::build()
         {QStringLiteral("schema_version"), 1},
         {QStringLiteral("mode"), QStringLiteral("opt_in")},
         {QStringLiteral("enabled_by_default"), false},
+        {QStringLiteral("config_manifest_field"), configManifestField()},
         {QStringLiteral("case_manifest_field"), caseManifestField()},
         {QStringLiteral("output_root"), root},
         {QStringLiteral("sidecar_suffix"), sidecarSuffix()},
+        {QStringLiteral("default_config"), defaultConfig()},
+        {QStringLiteral("failure_report"), failureReportContract()},
         {QStringLiteral("generators"), generators},
         {QStringLiteral("privacy_rules"), QJsonArray {
              QStringLiteral("All generated artifact paths are case-relative."),

@@ -93,15 +93,16 @@
 - N70：`CommandRunner` 已补充 `timeoutMs` 输入、`timedOut` 结果语义和 `command_runner_timeout_smoke`；DRAW、环境采集、testgrid/testdiff、二阶段验证和 patch 命令已有统一超时配置，UI 日志与结果 artifact 可区分 passed/failed/canceled/timed_out。
 - N71：新增 `core/case/CrashDumpArchive.*` 与 Evidence 面板 `Archive dump` 入口，可将 `.dmp/.mdmp/.dump` 归档到当前 Case `artifacts/crash/`，写出 SHA-256 manifest 并登记 Evidence；`crash_dump_archive_smoke` 覆盖归档输出和本机绝对路径不泄露。
 - N72：`CaseManifest` 新增 `repro.status`，`ReproStatusEvaluator` 统一判定 DRAW/C++/testgrid 复现状态；DRAW 运行、C++ 模板生成和 testgrid 落盘会写回 Case，并用 `repro_status_evaluator_smoke` 与 `case_manifest_plan_smoke` 覆盖。
+- N73：`CaseManifest` 新增 `verification.testdiff_generation`，`TestdiffGenerationContract` 补充默认 opt-in 配置、容差/阈值和失败报告 schema；`TestdiffGenerationPolicy` 可识别显式 opt-in 并输出有效配置与 `failure_report` 状态，但仍保持 `enabled=false`、`generation_performed=false`，不生成伪 artifact。新增 `testdiff_generation_failure_report_smoke`，并扩展 contract/policy/case manifest smoke 覆盖。
 
 后续任务应优先把这些基础能力串成真实 Case 工作流。
 
 ## 2. 推荐任务顺序
 
 ```text
-N73 为真实 testdiff 生成器补充 opt-in 配置、容差/阈值和失败报告 smoke 后再实现生成算法
 N74 继续收束 WorkbenchWindow 中剩余 Case 保存、命令编排和 UI 刷新职责
 N75 完善命令任务队列/状态面板，把当前最小状态日志升级为可浏览的任务历史
+N76 为真实 testdiff 生成器输出 sidecar 与 failure report writer 后，再启用具体生成算法
 ```
 
 ## 3. N1：配置系统与 AppContext

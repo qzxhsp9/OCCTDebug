@@ -2809,7 +2809,16 @@ AI 可以建议，但不能绕过编译、复现、测试和人工审查。
 - [x] 新增 `repro_status_evaluator_smoke`，并扩展 `case_manifest_plan_smoke` 覆盖 `repro.status` JSON 往返。
 - [ ] 当前复现状态仍是聚合摘要；后续 TaskHistory/TaskPanel 应记录每次运行的时间线和日志路径，而不是只保留最后一次状态。
 
-### 36.59 持续门禁
+### 36.59 N73：testdiff 生成器 opt-in 配置、阈值与失败报告契约
+
+- [x] `CaseManifest` 新增 `verification.testdiff_generation` 子对象，保存 `enabled_generators`、图片/属性容差、性能回归阈值和失败报告路径。
+- [x] `TestdiffGenerationContract` 新增默认配置、配置 manifest 字段、失败报告路径和失败报告 schema，继续要求所有路径为 Case 相对路径。
+- [x] `TestdiffGenerationPolicy` 新增带配置的 `build()` 重载，可识别显式 opt-in、回填有效容差/阈值，并为每个生成器输出 `failure_report` 状态。
+- [x] 即使 Case 显式 opt-in，当前策略仍保持 `enabled=false`、`generation_performed=false`，只记录阻塞原因与失败报告契约，不生成伪 artifact。
+- [x] 新增 `testdiff_generation_failure_report_smoke`，并扩展 `testdiff_generation_contract_smoke`、`testdiff_generation_policy_smoke`、`case_manifest_plan_smoke` 覆盖 N73 契约。
+- [ ] 当前仍未实现图片像素 diff、属性结构 diff 或性能趋势 diff 算法；下一步应先把真实生成器输出 sidecar 与 failure report writer 固化，再启用具体算法。
+
+### 36.60 持续门禁
 
 - [ ] 保持 `cmake --build out/build/debug --config Debug` 通过。
 - [ ] 保持 `ctest --test-dir out/build/debug -R "draw_.*smoke" --output-on-failure` 通过。

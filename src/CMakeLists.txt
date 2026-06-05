@@ -935,6 +935,36 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "TESTDIFF_GENERATION_CONTRACT_SMOKE_OK"
     )
 
+    add_executable(OCCTDebugTestdiffGenerationFailureReportSmoke
+        "${CMAKE_SOURCE_DIR}/tests/testdiff_generation_failure_report_smoke.cpp"
+        core/verify/TestdiffGenerationContract.cpp
+        core/verify/TestdiffGenerationContract.h
+        core/verify/TestdiffGenerationPolicy.cpp
+        core/verify/TestdiffGenerationPolicy.h
+    )
+    target_include_directories(OCCTDebugTestdiffGenerationFailureReportSmoke PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}"
+    )
+    target_link_libraries(OCCTDebugTestdiffGenerationFailureReportSmoke PRIVATE Qt6::Core)
+    target_compile_definitions(OCCTDebugTestdiffGenerationFailureReportSmoke PRIVATE
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+    )
+    if(MSVC)
+        target_compile_options(OCCTDebugTestdiffGenerationFailureReportSmoke PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(OCCTDebugTestdiffGenerationFailureReportSmoke PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_test(
+        NAME testdiff_generation_failure_report_smoke
+        COMMAND $<TARGET_FILE:OCCTDebugTestdiffGenerationFailureReportSmoke>
+    )
+    set_tests_properties(testdiff_generation_failure_report_smoke PROPERTIES
+        LABELS "verify;testdiff;artifact;generation;failure;smoke"
+        PASS_REGULAR_EXPRESSION "TESTDIFF_GENERATION_FAILURE_REPORT_SMOKE_OK"
+    )
+
     add_executable(OCCTDebugTestdiffAdapterResultWriterSmoke
         "${CMAKE_SOURCE_DIR}/tests/testdiff_adapter_result_writer_smoke.cpp"
         core/verify/TestdiffAdapterResultWriter.cpp

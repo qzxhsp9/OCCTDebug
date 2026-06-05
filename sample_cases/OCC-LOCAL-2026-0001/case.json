@@ -316,6 +316,28 @@
       "testdiff_executable": "",
       "testdiff_arguments": "--group {group} --grid {grid} --case {case} --out {output}",
       "testdiff_output_root": ""
+    },
+    "testdiff_generation": {
+      "enabled_generators": [],
+      "tolerances": {
+        "image_pixel_diff": {
+          "pixel_abs": 0,
+          "max_changed_ratio": 0
+        },
+        "property_structural_diff": {
+          "numeric_abs": 0.000001,
+          "numeric_rel": 0.000001
+        }
+      },
+      "thresholds": {
+        "performance_trend_diff": {
+          "regression_percent": 5,
+          "min_sample_count": 1
+        }
+      },
+      "failure_report": {
+        "path": "artifacts/testdiff/generated/failure_report.json"
+      }
     }
   },
   "similar_cases": [

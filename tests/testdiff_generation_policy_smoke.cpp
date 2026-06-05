@@ -69,6 +69,7 @@ int main(int argc, char** argv)
 
     const QJsonObject policy = occtdebug::TestdiffGenerationPolicy::build(artifactIndex, artifactAnalysis);
     const QJsonObject contract = policy.value(QStringLiteral("contract")).toObject();
+    const QJsonObject failureReport = policy.value(QStringLiteral("failure_report")).toObject();
     const QJsonArray generators = policy.value(QStringLiteral("generators")).toArray();
     const QJsonObject image = findGenerator(generators, QStringLiteral("image_pixel_diff"));
     const QJsonObject property = findGenerator(generators, QStringLiteral("property_structural_diff"));
@@ -76,12 +77,17 @@ int main(int argc, char** argv)
 
     if (!expect(policy.value(QStringLiteral("policy")).toString() == QStringLiteral("boundary_only"), "policy mode mismatch")
         || !expect(!policy.value(QStringLiteral("generation_performed")).toBool(), "policy generation flag mismatch")
+        || !expect(!policy.value(QStringLiteral("opt_in_requested")).toBool(), "default opt-in state mismatch")
         || !expect(contract.value(QStringLiteral("mode")).toString() == QStringLiteral("opt_in"), "contract mode mismatch")
         || !expect(!contract.value(QStringLiteral("enabled_by_default")).toBool(true), "contract default mismatch")
         || !expect(contract.value(QStringLiteral("generators")).toArray().size() == 3, "contract generator count mismatch")
+        || !expect(failureReport.value(QStringLiteral("path")).toString() == QStringLiteral("artifacts/testdiff/generated/failure_report.json"), "failure report path mismatch")
         || !expect(generators.size() == 3, "generator count mismatch")
         || !expect(!image.isEmpty() && image.value(QStringLiteral("candidate")).toBool(), "image candidate mismatch")
         || !expect(!image.value(QStringLiteral("enabled")).toBool(), "image generator should be disabled")
+        || !expect(!image.value(QStringLiteral("opt_in_requested")).toBool(), "image opt-in should be false by default")
+        || !expect(image.value(QStringLiteral("effective_config")).toObject().value(QStringLiteral("tolerances")).isObject(), "image effective config missing")
+        || !expect(image.value(QStringLiteral("failure_report")).toObject().value(QStringLiteral("status")).toString() == QStringLiteral("not_written"), "image failure report status mismatch")
         || !expect(image.value(QStringLiteral("current_inputs")).toObject().value(QStringLiteral("paired_groups")).toInt() == 1, "image paired input mismatch")
         || !expect(!property.isEmpty() && property.value(QStringLiteral("candidate")).toBool(), "property candidate mismatch")
         || !expect(!property.value(QStringLiteral("enabled")).toBool(), "property generator should be disabled")
